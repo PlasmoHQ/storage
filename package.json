@@ -1,6 +1,6 @@
 {
   "name": "@p1asm0/storage",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Safely store data and share it across your extension",
   "type": "module",
   "main": "./dist/index.js",
