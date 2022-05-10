@@ -1,0 +1,67 @@
+{
+  "name": "@p1asm0/storage",
+  "version": "0.0.1",
+  "description": "Safely store data and share it across your extension",
+  "type": "module",
+  "exports": {
+    "./hook": {
+      "import": {
+        "types": "./dist/hook.d.ts",
+        "default": "./dist/hook.js"
+      },
+      "default": "./dist/hook.js"
+    },
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "run-p dev:*",
+    "dev:compile": "tsup src/index.ts src/hook.ts --watch --sourcemap",
+    "dev:test": "jest --watch",
+    "build": "tsup src/index.ts src/hook.ts --dts-resolve --format esm --minify --clean",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
+    "prepublishOnly": "run-s build"
+  },
+  "author": "Plasmo Corp. <foss@plasmo.com>",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/plasmo-corp/storage.git"
+  },
+  "license": "MIT",
+  "keywords": [
+    "localstorage",
+    "react-hook",
+    "browser-extension",
+    "chrome-storage"
+  ],
+  "dependencies": {
+    "react": "18.1.0",
+    "react-dom": "18.1.0"
+  },
+  "devDependencies": {
+    "@jest/globals": "28.1.0",
+    "@jest/types": "28.1.0",
+    "@plasmo-corp/rps": "workspace:*",
+    "@testing-library/react": "13.2.0",
+    "@trivago/prettier-plugin-sort-imports": "3.2.0",
+    "@types/chrome": "0.0.184",
+    "@types/node": "17.0.31",
+    "@types/react": "18.0.9",
+    "cross-env": "7.0.3",
+    "jest": "28.1.0",
+    "jest-environment-jsdom": "28.1.0",
+    "prettier": "2.6.2",
+    "rimraf": "3.0.2",
+    "ts-jest": "^28.0.2",
+    "tsup": "5.12.7",
+    "typescript": "4.6.4"
+  }
+}
