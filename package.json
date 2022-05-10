@@ -1,5 +1,5 @@
 {
-  "name": "@p1asm0/storage",
+  "name": "@plasmohq/storage",
   "version": "0.0.3",
   "description": "Safely store data and share it across your extension",
   "type": "module",
