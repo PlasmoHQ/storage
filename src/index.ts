@@ -1,5 +1,7 @@
 /**
- * This share storage between chrome storage and local storage.
+ * Copyright (c) 2022 Plasmo Corp. <foss@plasmo.com> (https://www.plasmo.com) and contributors
+ * Licensed under the MIT license.
+ * This module share storage between chrome storage and local storage.
  */
 export class Storage {
   #secretSet: Set<string>
@@ -57,6 +59,37 @@ export class Storage {
         resolve(null)
       } else {
         chrome.storage.sync.set({ [key]: value }, resolve)
+      }
+    })
+
+  watch = (
+    callbackMap: Record<
+      string,
+      (
+        c: chrome.storage.StorageChange,
+        area: "sync" | "local" | "managed"
+      ) => void
+    >
+  ) =>
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      const callbackKeys = Object.keys(callbackMap)
+      const changeKeys = Object.keys(changes)
+
+      const smallerList =
+        callbackKeys.length < changeKeys.length ? callbackKeys : changeKeys
+      const biggerList =
+        callbackKeys.length > changeKeys.length ? callbackKeys : changeKeys
+
+      const checkSet = new Set(biggerList)
+
+      const relevantKeyList = smallerList.filter((key) => checkSet.has(key))
+
+      if (relevantKeyList.length === 0) {
+        return
+      }
+
+      for (const key of relevantKeyList) {
+        callbackMap[key](changes[key], areaName)
       }
     })
 }

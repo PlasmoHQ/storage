@@ -1,6 +1,6 @@
 {
   "name": "@p1asm0/storage",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Safely store data and share it across your extension",
   "type": "module",
   "main": "./dist/index.js",
@@ -56,7 +56,7 @@
     "jest-environment-jsdom": "28.1.0",
     "prettier": "2.6.2",
     "rimraf": "3.0.2",
-    "ts-jest": "^28.0.2",
+    "ts-jest": "28.0.2",
     "tsup": "5.12.7",
     "typescript": "4.6.4"
   }
