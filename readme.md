@@ -4,6 +4,29 @@
 
 ## Example
 
+### Storage API (for content scripts or background workers)
+
+```ts
+import { Storage } from "@p1asm0/storage"
+
+const storage = new Storage()
+
+storage.set("key", "value")
+```
+
+### Hook API (for react components - i.e popup and option pages):
+
+```tsx
+import { useStorage } from '@p1asm0/storage/hook';
+
+// ...
+
+const hailingFrequency = useStorage("hailing")
+
+return <>{hailingFrequency.value}</>
+
+```
+
 ## Usage in the wild
 
 - [mice](https://github.com/plasmo-corp/mice)
