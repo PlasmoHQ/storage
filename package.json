@@ -3,20 +3,16 @@
   "version": "0.0.1",
   "description": "Safely store data and share it across your extension",
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     "./hook": {
-      "import": {
-        "types": "./dist/hook.d.ts",
-        "default": "./dist/hook.js"
-      },
-      "default": "./dist/hook.js"
+      "types": "./dist/hook.d.ts",
+      "import": "./dist/hook.js"
     },
     ".": {
-      "import": {
-        "types": "./dist/index.d.ts",
-        "default": "./dist/index.js"
-      },
-      "default": "./dist/index.js"
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
     }
   },
   "files": [
@@ -24,9 +20,9 @@
   ],
   "scripts": {
     "dev": "run-p dev:*",
-    "dev:compile": "tsup src/index.ts src/hook.ts --watch --sourcemap",
+    "dev:compile": "tsup src/index.ts --watch --sourcemap",
     "dev:test": "jest --watch",
-    "build": "tsup src/index.ts src/hook.ts --dts-resolve --format esm --minify --clean",
+    "build": "tsup src/index.ts --dts-resolve --format esm --minify --clean",
     "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest",
     "prepublishOnly": "run-s build"
   },

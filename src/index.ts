@@ -60,3 +60,5 @@ export class Storage {
       }
     })
 }
+
+export * from "./hook"

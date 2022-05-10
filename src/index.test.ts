@@ -1,7 +1,7 @@
 import { beforeEach, expect, test } from "@jest/globals"
 import { act, renderHook } from "@testing-library/react"
 
-import { useStorage } from "~hook"
+import { useStorage } from "~index"
 
 global.chrome = undefined
 
