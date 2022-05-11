@@ -1,13 +1,13 @@
-# @p1asm0/storage
+# @plasmohq/storage
 
-`@p1asm0/storage` is an utility library from [plasmo](https://www.plasmo.com/) that abstract away the persistent storage API available to browser extension. It fallbacks to localstorage in context where the extension storage API is not available, allowing for state sync between popup - options - contents - background.
+`@plasmohq/storage` is an utility library from [plasmo](https://www.plasmo.com/) that abstract away the persistent storage API available to browser extension. It fallbacks to localstorage in context where the extension storage API is not available, allowing for state sync between popup - options - contents - background.
 
 ## Example
 
 ### Storage API (for content scripts or background workers)
 
 ```ts
-import { Storage } from "@p1asm0/storage"
+import { Storage } from "@plasmohq/storage"
 
 const storage = new Storage()
 
@@ -17,7 +17,7 @@ storage.set("key", "value")
 ### Hook API (for react components - i.e popup and option pages):
 
 ```tsx
-import { useStorage } from '@p1asm0/storage/hook';
+import { useStorage } from '@plasmohq/storage/hook';
 
 // ...
 
@@ -29,8 +29,8 @@ return <>{hailingFrequency.value}</>
 
 ## Usage in the wild
 
-- [mice](https://github.com/plasmo-corp/mice)
-- [world-edit](https://github.com/plasmo-corp/world-edit)
+- [mice](https://github.com/PlasmoHQ/mice)
+- [world-edit](https://github.com/PlasmoHQ/world-edit)
 
 ## Why?
 

@@ -29,7 +29,7 @@
   "author": "Plasmo Corp. <foss@plasmo.com>",
   "repository": {
     "type": "git",
-    "url": "https://github.com/plasmo-corp/storage.git"
+    "url": "https://github.com/PlasmoHQ/storage.git"
   },
   "license": "MIT",
   "keywords": [
