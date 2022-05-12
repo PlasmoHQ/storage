@@ -1,6 +1,6 @@
 {
   "name": "@plasmohq/storage",
-  "version": "0.0.4",
+  "version": "0.1.0",
   "description": "Safely store data and share it across your extension",
   "type": "module",
   "main": "./dist/index.js",
@@ -38,11 +38,12 @@
     "browser-extension",
     "chrome-storage"
   ],
-  "dependencies": {
-    "react": "18.1.0",
-    "react-dom": "18.1.0"
+  "peerDependencies": {
+    "react": "^16.8.6 || ^17 || ^18"
   },
   "devDependencies": {
+    "react": "18.1.0",
+    "react-dom": "18.1.0",
     "@jest/globals": "28.1.0",
     "@jest/types": "28.1.0",
     "@plasmo-corp/rps": "workspace:*",

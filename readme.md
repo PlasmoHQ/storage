@@ -17,7 +17,7 @@ storage.set("key", "value")
 ### Hook API (for react components - i.e popup and option pages):
 
 ```tsx
-import { useStorage } from '@plasmohq/storage/hook';
+import { useStorage } from '@plasmohq/storage';
 
 // ...
 
