@@ -12,7 +12,7 @@ export class Storage {
   /**
    * Sync the key/value between chrome storage and local storage.
    * @param key
-   * @returns true if the value is changed.
+   * @returns false if the value is unchanged or it is a secret key.
    */
   sync = (key: string) =>
     new Promise((resolve) => {
@@ -33,30 +33,38 @@ export class Storage {
   /**
    * Get value from either local storage or chrome storage.
    */
-  get = (key: string) =>
-    new Promise<string>((resolve) => {
+  get = <T = string>(key: string) =>
+    new Promise<T>((resolve) => {
       // If chrome storage is not available, use localStorage
       if (!chrome?.storage) {
-        resolve(localStorage.getItem(key))
+        const value = localStorage.getItem(key)
+        if (!value) {
+          resolve(undefined)
+        } else {
+          resolve(JSON.parse(value) as T)
+        }
       } else {
         chrome.storage.sync.get(key, (s) => {
-          resolve(s[key])
+          if (!!chrome.runtime.lastError) {
+            resolve(undefined)
+          } else {
+            resolve(JSON.parse(s[key]) as T)
+          }
         })
       }
     })
 
-  set = (key: string, rawValue: string | any) =>
+  set = (key: string, rawValue: any) =>
     new Promise<void>((resolve) => {
-      const value =
-        typeof rawValue === "string" ? rawValue : JSON.stringify(rawValue)
+      const value = JSON.stringify(rawValue)
 
       // If not a secret, we set it in localstorage as well
-      if (!this.#secretSet[key]) {
+      if (!this.#secretSet.has(key)) {
         localStorage.setItem(key, value)
       }
 
       if (!chrome?.storage) {
-        resolve(null)
+        resolve(undefined)
       } else {
         chrome.storage.sync.set({ [key]: value }, resolve)
       }
@@ -71,7 +79,7 @@ export class Storage {
       ) => void
     >
   ) =>
-    chrome.storage.onChanged.addListener((changes, areaName) => {
+    chrome?.storage?.onChanged.addListener((changes, areaName) => {
       const callbackKeys = Object.keys(callbackMap)
       const changeKeys = Object.keys(changes)
 
@@ -89,7 +97,13 @@ export class Storage {
       }
 
       for (const key of relevantKeyList) {
-        callbackMap[key](changes[key], areaName)
+        callbackMap[key](
+          {
+            newValue: JSON.parse(changes[key].newValue),
+            oldValue: JSON.parse(changes[key].oldValue)
+          },
+          areaName
+        )
       }
     })
 }
