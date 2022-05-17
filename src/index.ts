@@ -37,6 +37,8 @@ export class Storage {
     new Promise<T>((resolve) => {
       // If chrome storage is not available, use localStorage
       if (!chrome?.storage) {
+        console.warn("Chrome storage not accessible. Missing permission in manifest?") 
+        console.log("Using localStorage instead of Chrome storage.")
         const value = localStorage.getItem(key)
         if (!value) {
           resolve(undefined)
