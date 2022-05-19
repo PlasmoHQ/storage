@@ -17,8 +17,8 @@ test("stores basic text data ", () => {
   const { result } = renderHook(() => useStorage(key))
 
   act(() => {
-    result.current.persist(value)
+    result.current[1](value)
   })
 
-  expect(localStorage.getItem(key)).toBe(value)
+  expect(localStorage.getItem(key)).toBe(JSON.stringify(value))
 })

@@ -36,9 +36,10 @@ export class Storage {
   get = <T = string>(key: string) =>
     new Promise<T>((resolve) => {
       // If chrome storage is not available, use localStorage
+      // TODO: TRY asking for storage permission and add it as well?
       if (!chrome?.storage) {
         console.warn(
-          "Chrome storage not accessible. Missing permission in manifest? - Fallback to localStorage"
+          "Extension Storage API is not accessible. Fallback to localStorage. Ignore this warning for popup. Otherwise, you might need to add the storage permission to the manifest."
         )
         const value = localStorage.getItem(key)
         if (!value) {
