@@ -21,11 +21,11 @@ export class Storage {
         return
       }
 
-      const previousValue = localStorage.getItem(key)
+      const previousValue = localStorage?.getItem(key)
 
       chrome.storage.sync.get(key, (s) => {
         const value = s[key] as string
-        localStorage.setItem(key, value)
+        localStorage?.setItem(key, value)
         resolve(value !== previousValue)
       })
     })
@@ -41,7 +41,7 @@ export class Storage {
         console.warn(
           "Extension Storage API is not accessible. Fallback to localStorage. Ignore this warning for popup. Otherwise, you might need to add the storage permission to the manifest."
         )
-        const value = localStorage.getItem(key)
+        const value = localStorage?.getItem(key)
         if (!value) {
           resolve(undefined)
         } else {
@@ -64,7 +64,7 @@ export class Storage {
 
       // If not a secret, we set it in localstorage as well
       if (!this.#secretSet.has(key)) {
-        localStorage.setItem(key, value)
+        localStorage?.setItem(key, value)
       }
 
       if (!chrome?.storage) {
