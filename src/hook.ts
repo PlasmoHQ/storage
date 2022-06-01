@@ -28,7 +28,7 @@ export const useStorage = <T = any>(
       })
     }
 
-    storageRef.current.get<T>(key).then(async (v) => {
+    storageRef.current.get<T>(key).then(async function initializeValue(v) {
       if (onInit instanceof Function) {
         // Transform the data on init, then reflect it back to both the render and the store
         const initValue = await onInit?.(v)

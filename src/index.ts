@@ -42,14 +42,20 @@ export class Storage {
           "Extension Storage API is not accessible. Fallback to localStorage. Ignore this warning for popup. Otherwise, you might need to add the storage permission to the manifest."
         )
         const value = localStorage?.getItem(key)
-        if (!value) {
+        if (!value || typeof value !== "string") {
           resolve(undefined)
         } else {
           resolve(JSON.parse(value) as T)
         }
       } else {
         chrome.storage.sync.get(key, (s) => {
-          if (!!chrome.runtime.lastError) {
+          console.log(chrome.runtime.lastError, s, s[key])
+
+          if (
+            !!chrome.runtime.lastError ||
+            !s[key] ||
+            typeof s[key] !== "string"
+          ) {
             resolve(undefined)
           } else {
             resolve(JSON.parse(s[key]) as T)
