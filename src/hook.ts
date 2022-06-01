@@ -1,11 +1,25 @@
+/**
+ * Copyright (c) 2022 Plasmo Corp. <foss@plasmo.com> (https://www.plasmo.com) and contributors
+ * Licensed under the MIT license.
+ * This module share storage between chrome storage and local storage.
+ */
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import { Storage } from "./index"
+import { Storage, StorageAreaName } from "./index"
 
 export const useStorage = <T = any>(
-  key: string,
+  rawKey:
+    | string
+    | {
+        key: string
+        area?: StorageAreaName
+      },
   onInit?: ((v?: T) => T) | T
 ) => {
+  const isStringKey = typeof rawKey === "string"
+
+  const key = isStringKey ? rawKey : rawKey.key
+
   // Render state
   const [renderValue, setRenderValue] = useState<T>(onInit)
 
@@ -13,22 +27,20 @@ export const useStorage = <T = any>(
   const isMounted = useRef(false)
 
   // Storage state
-  const storageRef = useRef(new Storage())
+  const storageRef = useRef(new Storage(isStringKey ? "sync" : rawKey.area))
 
   useEffect(() => {
     isMounted.current = true
 
-    if (!!chrome?.storage) {
-      storageRef.current.watch({
-        [key]: (c) => {
-          if (isMounted.current) {
-            setRenderValue(c.newValue)
-          }
+    storageRef.current.watch({
+      [key]: (c) => {
+        if (isMounted.current) {
+          setRenderValue(c.newValue)
         }
-      })
-    }
+      }
+    })
 
-    storageRef.current.get<T>(key).then(async function initializeValue(v) {
+    storageRef.current.get<T>(key).then(async (v) => {
       if (onInit instanceof Function) {
         // Transform the data on init, then reflect it back to both the render and the store
         const initValue = await onInit?.(v)
@@ -59,18 +71,24 @@ export const useStorage = <T = any>(
   // Store the value into chrome storage, then set its render state
   const persistValue = useCallback(
     (newValue: T) =>
-      storageRef.current
-        .set(key, newValue)
-        .then(() => isMounted.current && setRenderValue(newValue)),
-    []
+      setStoreValue(newValue).then(
+        () => isMounted.current && setRenderValue(newValue)
+      ),
+    [setStoreValue]
   )
+
+  const remove = useCallback(() => {
+    storageRef.current.remove(key)
+    setRenderValue(undefined)
+  }, [setRenderValue])
 
   return [
     renderValue,
     persistValue,
     {
       setRenderValue,
-      setStoreValue
+      setStoreValue,
+      remove
     }
   ] as const
 }

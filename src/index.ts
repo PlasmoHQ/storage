@@ -3,10 +3,32 @@
  * Licensed under the MIT license.
  * This module share storage between chrome storage and local storage.
  */
+
+type StorageWatchEventListener = Parameters<
+  typeof chrome.storage.onChanged.addListener
+>[0]
+
+export type StorageAreaName = Parameters<StorageWatchEventListener>[1]
+
 export class Storage {
   #secretSet: Set<string>
-  constructor(secretKeys: string[] = []) {
-    this.#secretSet = new Set(secretKeys)
+
+  #client: chrome.storage.StorageArea = null
+  #area: StorageAreaName = null
+
+  hasExtensionAPI = false
+
+  constructor(
+    storageArea = "sync" as StorageAreaName,
+    secretKeyList: string[] = []
+  ) {
+    this.#secretSet = new Set(secretKeyList)
+    this.#area = storageArea
+
+    if (!!chrome?.storage) {
+      this.#client = chrome.storage[storageArea]
+      this.hasExtensionAPI = true
+    }
   }
 
   /**
@@ -16,14 +38,14 @@ export class Storage {
    */
   sync = (key: string) =>
     new Promise((resolve) => {
-      if (this.#secretSet.has(key) || !chrome?.storage) {
+      if (this.#secretSet.has(key) || !this.#client) {
         resolve(false)
         return
       }
 
       const previousValue = localStorage?.getItem(key)
 
-      chrome.storage.sync.get(key, (s) => {
+      this.#client.get(key, (s) => {
         const value = s[key] as string
         localStorage?.setItem(key, value)
         resolve(value !== previousValue)
@@ -37,7 +59,7 @@ export class Storage {
     new Promise<T>((resolve) => {
       // If chrome storage is not available, use localStorage
       // TODO: TRY asking for storage permission and add it as well?
-      if (!chrome?.storage) {
+      if (!this.#client) {
         console.warn(
           "Extension Storage API is not accessible. Fallback to localStorage. Ignore this warning for popup. Otherwise, you might need to add the storage permission to the manifest."
         )
@@ -48,14 +70,8 @@ export class Storage {
           resolve(JSON.parse(value) as T)
         }
       } else {
-        chrome.storage.sync.get(key, (s) => {
-          console.log(chrome.runtime.lastError, s, s[key])
-
-          if (
-            !!chrome.runtime.lastError ||
-            !s[key] ||
-            typeof s[key] !== "string"
-          ) {
+        this.#client.get(key, (s) => {
+          if (!s[key] || typeof s[key] !== "string") {
             resolve(undefined)
           } else {
             resolve(JSON.parse(s[key]) as T)
@@ -64,6 +80,9 @@ export class Storage {
       }
     })
 
+  /**
+   * Set the value. If it is a secret, it will only be set in extension storage
+   */
   set = (key: string, rawValue: any) =>
     new Promise<void>((resolve) => {
       const value = JSON.stringify(rawValue)
@@ -73,34 +92,45 @@ export class Storage {
         localStorage?.setItem(key, value)
       }
 
-      if (!chrome?.storage) {
-        resolve(undefined)
-      } else {
-        chrome.storage.sync.set({ [key]: value }, resolve)
+      if (this.#client !== null) {
+        this.#client.set({ [key]: value }, resolve)
+        return
       }
+
+      resolve(undefined)
+    })
+
+  remove = (key: string) =>
+    new Promise<void>((resolve) => {
+      // If not a secret, we set it in localstorage as well
+      if (!this.#secretSet.has(key)) {
+        localStorage?.removeItem(key)
+      }
+
+      if (this.#client !== null) {
+        this.#client?.remove(key, resolve)
+        return
+      }
+
+      resolve(undefined)
     })
 
   watch = (
     callbackMap: Record<
       string,
-      (
-        c: chrome.storage.StorageChange,
-        area: "sync" | "local" | "managed"
-      ) => void
+      (c: chrome.storage.StorageChange, area: StorageAreaName) => void
     >
   ) =>
-    chrome?.storage?.onChanged.addListener((changes, areaName) => {
+    this.hasExtensionAPI &&
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== this.#area) {
+        return
+      }
+
       const callbackKeys = Object.keys(callbackMap)
       const changeKeys = Object.keys(changes)
 
-      const smallerList =
-        callbackKeys.length < changeKeys.length ? callbackKeys : changeKeys
-      const biggerList =
-        callbackKeys.length > changeKeys.length ? callbackKeys : changeKeys
-
-      const checkSet = new Set(biggerList)
-
-      const relevantKeyList = smallerList.filter((key) => checkSet.has(key))
+      const relevantKeyList = getUnionList(callbackKeys, changeKeys)
 
       if (relevantKeyList.length === 0) {
         return
@@ -119,3 +149,12 @@ export class Storage {
 }
 
 export * from "./hook"
+
+function getUnionList(listA: string[], listB: string[]) {
+  const smallerList = listA.length < listB.length ? listA : listB
+  const biggerList = listA.length > listB.length ? listA : listB
+
+  const checkSet = new Set(biggerList)
+
+  return smallerList.filter((key) => checkSet.has(key))
+}

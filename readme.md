@@ -26,53 +26,18 @@
 
 `@plasmohq/storage` is an utility library from [plasmo](https://www.plasmo.com/) that abstract away the persistent storage API available to browser extension. It fallbacks to localstorage in context where the extension storage API is not available, allowing for state sync between popup - options - contents - background.
 
-## Example
+> This library will enable the `storage` permission automatically if used with the [Plasmo framework](https://docs.plasmo.com)
 
-### Storage API (for content scripts or background workers)
+## Documentation
 
-```ts
-import { Storage } from "@plasmohq/storage"
-
-const storage = new Storage()
-
-storage.set("key", "value")
-```
-
-### Hook API (for react components - i.e popup and option pages):
-
-```tsx
-import { useStorage } from '@plasmohq/storage';
-
-// ...
-
-const [hailingFrequency, setHailingFrequency] = useStorage("hailing", 42)
-
-return <>{hailingFrequency}</>
-```
-
-### Advanced Hook API usage
-
-When dealing with form input or real-time input, you might need the following:
-
-```tsx
-const [hailingFrequency, , {
-  setRenderValue,
-  setStoreValue,
-}] = useStorage("hailing")
-
-return <>
-  <input value={hailingFrequency} onChange={(e) => setRenderValue(e.target.value)}/>
-  <button onClick={() => setStoreValue()}>
-    Save
-  </button>
-</>
-
-```
+Visit: [https://docs.plasmo.com/framework/storage](https://docs.plasmo.com/framework/storage)
 
 ## Usage in the wild
 
 - [MICE](https://github.com/PlasmoHQ/mice)
 - [World Edit](https://github.com/PlasmoHQ/world-edit)
+- [with-storage](https://github.com/PlasmoHQ/examples/tree/main/with-storage)
+- [with-redux](https://github.com/PlasmoHQ/examples/tree/main/with-redux)
 
 ## Why?
 

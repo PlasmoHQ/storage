@@ -1,3 +1,8 @@
+/**
+ * Copyright (c) 2022 Plasmo Corp. <foss@plasmo.com> (https://www.plasmo.com) and contributors
+ * Licensed under the MIT license.
+ * This module share storage between chrome storage and local storage.
+ */
 import { beforeEach, expect, test } from "@jest/globals"
 import { act, renderHook } from "@testing-library/react"
 
