@@ -32,7 +32,7 @@
 
 Visit: [https://docs.plasmo.com/framework/storage](https://docs.plasmo.com/framework/storage)
 
-## Usage in the wild
+## Usage Examples
 
 - [MICE](https://github.com/PlasmoHQ/mice)
 - [World Edit](https://github.com/PlasmoHQ/world-edit)
