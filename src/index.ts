@@ -38,7 +38,7 @@ export class Storage {
    */
   sync = (key: string) =>
     new Promise((resolve) => {
-      if (this.#secretSet.has(key) || !this.#client) {
+      if (this.#secretSet.has(key) || !this.hasExtensionAPI) {
         resolve(false)
         return
       }
@@ -57,19 +57,7 @@ export class Storage {
    */
   get = <T = string>(key: string) =>
     new Promise<T>((resolve) => {
-      // If chrome storage is not available, use localStorage
-      // TODO: TRY asking for storage permission and add it as well?
-      if (!this.#client) {
-        console.warn(
-          "Extension Storage API is not accessible. Fallback to localStorage. Ignore this warning for popup. Otherwise, you might need to add the storage permission to the manifest."
-        )
-        const value = localStorage?.getItem(key)
-        if (!value || typeof value !== "string") {
-          resolve(undefined)
-        } else {
-          resolve(JSON.parse(value) as T)
-        }
-      } else {
+      if (this.hasExtensionAPI) {
         this.#client.get(key, (s) => {
           if (!s[key] || typeof s[key] !== "string") {
             resolve(undefined)
@@ -77,23 +65,62 @@ export class Storage {
             resolve(JSON.parse(s[key]) as T)
           }
         })
+      } else {
+        // If chrome storage is not available, use localStorage
+        // TODO: TRY asking for storage permission and retry?
+        const value = localStorage?.getItem(key)
+        if (!value || typeof value !== "string") {
+          resolve(undefined)
+        } else {
+          resolve(JSON.parse(value) as T)
+        }
       }
     })
 
   /**
-   * Set the value. If it is a secret, it will only be set in extension storage
+   * Set the value. If it is a secret, it will only be set in extension storage.
+   * Returns a warning if storage capacity is almost full.
+   * Throws error if the new item will make storage full
    */
   set = (key: string, rawValue: any) =>
-    new Promise<void>((resolve) => {
+    new Promise<string | undefined>(async (resolve, reject) => {
       const value = JSON.stringify(rawValue)
+
+      let warning: string
 
       // If not a secret, we set it in localstorage as well
       if (!this.#secretSet.has(key)) {
         localStorage?.setItem(key, value)
       }
 
-      if (this.#client !== null) {
-        this.#client.set({ [key]: value }, resolve)
+      if (this.hasExtensionAPI) {
+        if (this.#area !== "managed") {
+          const client = chrome.storage[this.#area]
+          const quota = client.QUOTA_BYTES || 1
+
+          const newValueByteSize = byteLengthCharCode(value)
+          const [byteInUse, oldValueByteSize] = await Promise.all([
+            client.getBytesInUse(),
+            client.getBytesInUse(key)
+          ])
+
+          const newByteInUse = byteInUse + newValueByteSize - oldValueByteSize
+
+          // if used 80% of quota, show warning
+          const usedPercentage = newByteInUse / quota
+          if (usedPercentage > 0.8) {
+            warning = `Storage quota is almost full. ${newByteInUse}/${quota}, ${
+              usedPercentage * 100
+            }%`
+          }
+
+          if (usedPercentage > 1.0) {
+            reject(new Error(`ABORTED - New value would exceed storage quota.`))
+            return
+          }
+        }
+
+        this.#client.set({ [key]: value }, () => resolve(warning))
         return
       }
 
@@ -107,8 +134,8 @@ export class Storage {
         localStorage?.removeItem(key)
       }
 
-      if (this.#client !== null) {
-        this.#client?.remove(key, resolve)
+      if (this.hasExtensionAPI) {
+        this.#client.remove(key, resolve)
         return
       }
 
@@ -157,4 +184,17 @@ function getUnionList(listA: string[], listB: string[]) {
   const checkSet = new Set(biggerList)
 
   return smallerList.filter((key) => checkSet.has(key))
+}
+
+// https://stackoverflow.com/a/23329386/3151192
+function byteLengthCharCode(str: string) {
+  // returns the byte length of an utf8 string
+  let s = str.length
+  for (var i = str.length - 1; i >= 0; i--) {
+    const code = str.charCodeAt(i)
+    if (code > 0x7f && code <= 0x7ff) s++
+    else if (code > 0x7ff && code <= 0xffff) s += 2
+    if (code >= 0xdc00 && code <= 0xdfff) i-- //trail surrogate
+  }
+  return s
 }
