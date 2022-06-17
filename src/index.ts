@@ -10,10 +10,13 @@ type StorageWatchEventListener = Parameters<
 
 export type StorageAreaName = Parameters<StorageWatchEventListener>[1]
 
+const hasWindow = typeof window !== "undefined"
+
 export class Storage {
   #secretSet: Set<string>
 
   #client: chrome.storage.StorageArea = null
+  #localClient = hasWindow ? window.localStorage : null
   #area: StorageAreaName = null
 
   hasExtensionAPI = false
@@ -43,11 +46,11 @@ export class Storage {
         return
       }
 
-      const previousValue = localStorage?.getItem(key)
+      const previousValue = this.#localClient?.getItem(key)
 
       this.#client.get(key, (s) => {
         const value = s[key] as string
-        localStorage?.setItem(key, value)
+        this.#localClient?.setItem(key, value)
         resolve(value !== previousValue)
       })
     })
@@ -68,7 +71,7 @@ export class Storage {
       } else {
         // If chrome storage is not available, use localStorage
         // TODO: TRY asking for storage permission and retry?
-        const value = localStorage?.getItem(key)
+        const value = this.#localClient?.getItem(key)
         if (!value || typeof value !== "string") {
           resolve(undefined)
         } else {
@@ -90,7 +93,7 @@ export class Storage {
 
       // If not a secret, we set it in localstorage as well
       if (!this.#secretSet.has(key)) {
-        localStorage?.setItem(key, value)
+        this.#localClient?.setItem(key, value)
       }
 
       if (this.hasExtensionAPI) {
@@ -131,7 +134,7 @@ export class Storage {
     new Promise<void>((resolve) => {
       // If not a secret, we set it in localstorage as well
       if (!this.#secretSet.has(key)) {
-        localStorage?.removeItem(key)
+        this.#localClient?.removeItem(key)
       }
 
       if (this.hasExtensionAPI) {
