@@ -169,13 +169,26 @@ export class Storage {
       for (const key of relevantKeyList) {
         callbackMap[key](
           {
-            newValue: JSON.parse(changes[key].newValue),
-            oldValue: JSON.parse(changes[key].oldValue)
+            newValue: this.#parseValue(changes[key].newValue),
+            oldValue: this.#parseValue(changes[key].oldValue)
           },
           areaName
         )
       }
     })
+
+    #parseValue(rawValue: any) {
+      try {
+         if (rawValue !== undefined) {
+           return JSON.parse(rawValue)
+         }
+      } catch(e) {
+        // ignore error. TODO: debug log them maybe
+        console.error(e)
+      }
+      return undefined
+    }
+
 }
 
 export * from "./hook"
