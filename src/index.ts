@@ -62,21 +62,13 @@ export class Storage {
     new Promise<T>((resolve) => {
       if (this.hasExtensionAPI) {
         this.#client.get(key, (s) => {
-          if (!s[key] || typeof s[key] !== "string") {
-            resolve(undefined)
-          } else {
-            resolve(JSON.parse(s[key]) as T)
-          }
+          resolve(this.#parseValue(s[key]) as T)
         })
       } else {
         // If chrome storage is not available, use localStorage
         // TODO: TRY asking for storage permission and retry?
         const value = this.#localClient?.getItem(key)
-        if (!value || typeof value !== "string") {
-          resolve(undefined)
-        } else {
-          resolve(JSON.parse(value) as T)
-        }
+        resolve(this.#parseValue(value) as T)
       }
     })
 
@@ -177,18 +169,17 @@ export class Storage {
       }
     })
 
-    #parseValue(rawValue: any) {
-      try {
-         if (rawValue !== undefined) {
-           return JSON.parse(rawValue)
-         }
-      } catch(e) {
-        // ignore error. TODO: debug log them maybe
-        console.error(e)
+  #parseValue(rawValue: any) {
+    try {
+      if (rawValue !== undefined) {
+        return JSON.parse(rawValue)
       }
-      return undefined
+    } catch (e) {
+      // ignore error. TODO: debug log them maybe
+      console.error(e)
     }
-
+    return undefined
+  }
 }
 
 export * from "./hook"
