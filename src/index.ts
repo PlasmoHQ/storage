@@ -167,10 +167,14 @@ export class Storage {
       }
 
       for (const key of relevantKeyList) {
+        let {
+          newValue: newRawValue,
+          oldValue: oldRawValue = null
+        } = changes[key]
         callbackMap[key](
           {
-            newValue: JSON.parse(changes[key].newValue),
-            oldValue: JSON.parse(changes[key].oldValue)
+            newValue: JSON.parse(newRawValue),
+            oldValue: oldRawValue ? JSON.parse(oldRawValue) : oldRawValue
           },
           areaName
         )
