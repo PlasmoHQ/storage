@@ -79,7 +79,12 @@ export class Storage {
    */
   set = (key: string, rawValue: any) =>
     new Promise<string | undefined>(async (resolve, reject) => {
-      const value = JSON.stringify(rawValue)
+      let value: string
+      if (typeof rawValue === "string") {
+        value = rawValue as string
+      } else {
+        value = JSON.stringify(rawValue)
+      }
 
       let warning: string
 
