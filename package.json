@@ -42,7 +42,7 @@
     "react": "^16.8.6 || ^17 || ^18"
   },
   "devDependencies": {
-    "@jest/globals": "28.1.1",
+    "@jest/globals": "28.1.2",
     "@jest/types": "28.1.1",
     "@plasmohq/rps": "workspace:*",
     "@testing-library/react": "13.3.0",
@@ -51,8 +51,8 @@
     "@types/node": "18.0.0",
     "@types/react": "18.0.14",
     "cross-env": "7.0.3",
-    "jest": "28.1.1",
-    "jest-environment-jsdom": "28.1.1",
+    "jest": "28.1.2",
+    "jest-environment-jsdom": "28.1.2",
     "prettier": "2.7.1",
     "react": "18.2.0",
     "react-dom": "18.2.0",
