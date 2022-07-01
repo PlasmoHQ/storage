@@ -149,11 +149,11 @@ export class Storage {
         return
       }
 
-      const callbackKeys = Object.keys(callbackMap)
+      const callbackKeySet = new Set(Object.keys(callbackMap))
       const changeKeys = Object.keys(changes)
 
       const relevantKeyList = changeKeys.filter((key) =>
-        callbackKeys.includes(key)
+        callbackKeySet.has(key)
       )
 
       if (relevantKeyList.length === 0) {
@@ -161,9 +161,7 @@ export class Storage {
       }
 
       for (const key of relevantKeyList) {
-        let { newValue: newRawValue, oldValue: oldRawValue = null } =
-          changes[key]
-        callbackMap[key](
+        callbackMap[key]?.(
           {
             newValue: this.#parseValue(changes[key].newValue),
             oldValue: this.#parseValue(changes[key].oldValue)
@@ -173,7 +171,7 @@ export class Storage {
       }
     })
 
-  #parseValue(rawValue: any) {
+  #parseValue(rawValue: any = null) {
     try {
       if (rawValue !== undefined) {
         return JSON.parse(rawValue)

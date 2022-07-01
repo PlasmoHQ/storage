@@ -31,7 +31,6 @@ export const useStorage = <T = any>(
 
   useEffect(() => {
     isMounted.current = true
-
     storageRef.current.watch({
       [key]: (c) => {
         if (isMounted.current) {
@@ -64,7 +63,8 @@ export const useStorage = <T = any>(
 
   // Save the value OR current rendering value into chrome storage
   const setStoreValue = useCallback(
-    (v?: T) => storageRef.current.set(key, v || renderValue),
+    (v?: T) =>
+      storageRef.current.set(key, typeof v !== "undefined" ? v : renderValue),
     [renderValue]
   )
 
