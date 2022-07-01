@@ -152,17 +152,17 @@ export class Storage {
       const callbackKeys = Object.keys(callbackMap)
       const changeKeys = Object.keys(changes)
 
-      const relevantKeyList = getUnionList(callbackKeys, changeKeys)
+      const relevantKeyList = changeKeys.filter((key) =>
+        callbackKeys.includes(key)
+      )
 
       if (relevantKeyList.length === 0) {
         return
       }
 
       for (const key of relevantKeyList) {
-        let {
-          newValue: newRawValue,
-          oldValue: oldRawValue = null
-        } = changes[key]
+        let { newValue: newRawValue, oldValue: oldRawValue = null } =
+          changes[key]
         callbackMap[key](
           {
             newValue: this.#parseValue(changes[key].newValue),
@@ -187,15 +187,6 @@ export class Storage {
 }
 
 export * from "./hook"
-
-function getUnionList(listA: string[], listB: string[]) {
-  const smallerList = listA.length < listB.length ? listA : listB
-  const biggerList = listA.length > listB.length ? listA : listB
-
-  const checkSet = new Set(biggerList)
-
-  return smallerList.filter((key) => checkSet.has(key))
-}
 
 // https://stackoverflow.com/a/23329386/3151192
 function byteLengthCharCode(str: string) {
