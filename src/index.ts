@@ -12,6 +12,9 @@ export type StorageAreaName = Parameters<StorageWatchEventListener>[1]
 
 const hasWindow = typeof window !== "undefined"
 
+/**
+ * https://docs.plasmo.com/framework-api/storage
+ */
 export class Storage {
   #secretSet: Set<string>
 

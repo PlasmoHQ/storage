@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { Storage, StorageAreaName } from "./index"
 
 /**
+ * https://docs.plasmo.com/framework-api/storage
  * @param rawKey
  * @param onInit  If it is a function, the returned value will be rendered and persisted. If it is a static value, it will only be rendered, not persisted
  * @returns
