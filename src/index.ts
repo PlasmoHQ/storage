@@ -171,7 +171,7 @@ export class Storage {
       }
     })
 
-  #parseValue(rawValue: any = null) {
+  #parseValue(rawValue: any) {
     try {
       if (rawValue !== undefined) {
         return JSON.parse(rawValue)

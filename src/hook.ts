@@ -34,6 +34,8 @@ export const useStorage = <T = any>(
     storageRef.current.watch({
       [key]: (c) => {
         if (isMounted.current) {
+          console.log(c.newValue)
+
           setRenderValue(c.newValue)
         }
       }
