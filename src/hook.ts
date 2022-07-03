@@ -7,6 +7,11 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { Storage, StorageAreaName } from "./index"
 
+/**
+ * @param rawKey
+ * @param onInit  If it is a function, the returned value will be rendered and persisted. If it is a static value, it will only be rendered, not persisted
+ * @returns
+ */
 export const useStorage = <T = any>(
   rawKey:
     | string
@@ -34,8 +39,6 @@ export const useStorage = <T = any>(
     storageRef.current.watch({
       [key]: (c) => {
         if (isMounted.current) {
-          console.log(c.newValue)
-
           setRenderValue(c.newValue)
         }
       }
@@ -43,19 +46,14 @@ export const useStorage = <T = any>(
 
     storageRef.current.get<T>(key).then(async (v) => {
       if (onInit instanceof Function) {
-        // Transform the data on init, then reflect it back to both the render and the store
         const initValue = await onInit?.(v)
-        if (typeof initValue !== "undefined") {
+        if (initValue !== undefined) {
           persistValue(initValue)
-          return
         }
+        return
       }
 
-      if (typeof v !== "undefined") {
-        setRenderValue(v)
-      } else if (typeof onInit !== "undefined") {
-        setRenderValue(onInit)
-      }
+      setRenderValue(v !== undefined ? v : onInit)
     })
 
     return () => {
@@ -65,8 +63,7 @@ export const useStorage = <T = any>(
 
   // Save the value OR current rendering value into chrome storage
   const setStoreValue = useCallback(
-    (v?: T) =>
-      storageRef.current.set(key, typeof v !== "undefined" ? v : renderValue),
+    (v?: T) => storageRef.current.set(key, v !== undefined ? v : renderValue),
     [renderValue]
   )
 
