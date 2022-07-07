@@ -146,20 +146,24 @@ export class Storage {
       resolve(undefined)
     })
 
-  watch = (callbackMap: Record<string, StorageWatchListener>) => {
-    if (this.hasExtensionAPI) {
-      for (const [key, callback] of Object.entries(callbackMap)) {
-        if (!this.#watchListeners[key]) {
-          this.#watchListeners[key] = []
-        }
-        this.#watchListeners[key].push(callback)
-      }
+  watch = (callbackMap: Record<string, StorageWatchListener>): boolean => {
+    if (!this.isWatchingSupported()) return false
 
-      if (this.#internalStorageListener === null) {
-        this.#attachInternalStorageListener()
+    for (const [key, callback] of Object.entries(callbackMap)) {
+      if (!this.#watchListeners[key]) {
+        this.#watchListeners[key] = []
       }
+      this.#watchListeners[key].push(callback)
     }
+
+    if (this.#internalStorageListener === null) {
+      this.#attachInternalStorageListener()
+    }
+
+    return true
   }
+
+  isWatchingSupported = () => this.hasExtensionAPI
 
   #attachInternalStorageListener = () => {
     this.#internalStorageListener = (changes, areaName) => {
@@ -194,7 +198,9 @@ export class Storage {
     chrome.storage.onChanged.addListener(this.#internalStorageListener)
   }
 
-  unwatch = (callbackMap: Record<string, StorageWatchListener>) => {
+  unwatch = (callbackMap: Record<string, StorageWatchListener>): boolean => {
+    if (!this.isWatchingSupported()) return false
+
     for (const [key, callback] of Object.entries(callbackMap)) {
       if (!this.#watchListeners[key]) continue
 
@@ -210,6 +216,8 @@ export class Storage {
     if (Object.keys(this.#watchListeners).length === 0) {
       this.#detachInternalStorageListener()
     }
+
+    return true
   }
 
   unwatchAll = () => {
