@@ -27,8 +27,34 @@ describe("react hook", () => {
 
     expect(localStorage.getItem(key)).toBe(JSON.stringify(value))
   })
+  test("removes watch listener when unmounting", () => {
+    const mockAttach = jest.fn()
+    const mockDetach = jest.fn()
+    global.chrome = {
+      storage: {
+        // @ts-ignore
+        onChanged: {
+          addListener: mockAttach,
+          removeListener: mockDetach
+        },
 
-  expect(localStorage.getItem(key)).toBe(JSON.stringify(value))
+        sync: {
+          // @ts-ignore
+          get: jest.fn()
+        }
+      }
+    }
+
+    const testRenderComponent = () => {
+      useStorage("test")
+      return null
+    }
+    const { unmount } = render(React.createElement(testRenderComponent))
+    unmount()
+
+    expect(mockAttach).toHaveBeenCalled()
+    expect(mockDetach).toHaveBeenCalled()
+  })
 })
 
 describe("watch/unwatch", () => {
