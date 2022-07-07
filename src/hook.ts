@@ -37,13 +37,14 @@ export const useStorage = <T = any>(
 
   useEffect(() => {
     isMounted.current = true
-    storageRef.current.watch({
+    const watchConfig = {
       [key]: (c) => {
         if (isMounted.current) {
           setRenderValue(c.newValue)
         }
       }
-    })
+    }
+    storageRef.current.watch(watchConfig)
 
     storageRef.current.get<T>(key).then(async (v) => {
       if (onInit instanceof Function) {
@@ -59,6 +60,7 @@ export const useStorage = <T = any>(
 
     return () => {
       isMounted.current = false
+      storageRef.current.unwatch(watchConfig)
     }
   }, [])
 
