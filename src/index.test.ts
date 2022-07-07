@@ -14,6 +14,28 @@ beforeEach(() => {
   localStorage.clear()
 })
 
+const mockAttachDetach = () => {
+  const mockAttach = jest.fn()
+  const mockDetach = jest.fn()
+  global.chrome = {
+    storage: {
+      // @ts-ignore
+      onChanged: {
+        addListener: mockAttach,
+        removeListener: mockDetach
+      },
+
+      sync: {
+        // Needed because react hook tries to directly read the value
+        // @ts-ignore
+        get: jest.fn()
+      }
+    }
+  }
+
+  return { mockAttach, mockDetach }
+}
+
 describe("react hook", () => {
   test("stores basic text data ", () => {
     const key = "test"
@@ -28,22 +50,7 @@ describe("react hook", () => {
     expect(localStorage.getItem(key)).toBe(JSON.stringify(value))
   })
   test("removes watch listener when unmounting", () => {
-    const mockAttach = jest.fn()
-    const mockDetach = jest.fn()
-    global.chrome = {
-      storage: {
-        // @ts-ignore
-        onChanged: {
-          addListener: mockAttach,
-          removeListener: mockDetach
-        },
-
-        sync: {
-          // @ts-ignore
-          get: jest.fn()
-        }
-      }
-    }
+    const { mockAttach, mockDetach } = mockAttachDetach()
 
     const testRenderComponent = () => {
       useStorage("test")
@@ -59,17 +66,7 @@ describe("react hook", () => {
 
 describe("watch/unwatch", () => {
   test("attaches storage listener when watch listener is added", () => {
-    const mockAttach = jest.fn()
-    const mockDetach = jest.fn()
-    global.chrome = {
-      storage: {
-        // @ts-ignore
-        onChanged: {
-          addListener: mockAttach,
-          removeListener: mockDetach
-        }
-      }
-    }
+    const { mockAttach, mockDetach } = mockAttachDetach()
 
     const storage = new Storage()
     storage.watch({ key: () => {} })
@@ -79,17 +76,7 @@ describe("watch/unwatch", () => {
   })
 
   test("removes storage listener when all watch listener is removed", () => {
-    const mockAttach = jest.fn()
-    const mockDetach = jest.fn()
-    global.chrome = {
-      storage: {
-        // @ts-ignore
-        onChanged: {
-          addListener: mockAttach,
-          removeListener: mockDetach
-        }
-      }
-    }
+    const { mockAttach, mockDetach } = mockAttachDetach()
 
     const storage = new Storage()
     const watchConfig = { key: () => {} }
@@ -101,17 +88,7 @@ describe("watch/unwatch", () => {
   })
 
   test("doesn't remove storage listener when watch listener remain after unwatch", () => {
-    const mockAttach = jest.fn()
-    const mockDetach = jest.fn()
-    global.chrome = {
-      storage: {
-        // @ts-ignore
-        onChanged: {
-          addListener: mockAttach,
-          removeListener: mockDetach
-        }
-      }
-    }
+    const { mockAttach, mockDetach } = mockAttachDetach()
 
     const storage = new Storage()
     const watchConfig = { key: () => {} }
@@ -124,18 +101,11 @@ describe("watch/unwatch", () => {
   })
 
   test("calls all watch listeners", () => {
+    mockAttachDetach()
+
     let internalListener: StorageWatchListener = () => {}
-    global.chrome = {
-      storage: {
-        // @ts-ignore
-        onChanged: {
-          addListener: (listener) => {
-            internalListener = listener
-          },
-          removeListener: jest.fn()
-        }
-      }
-    }
+    global.chrome.storage.onChanged.addListener = (listener) =>
+      (internalListener = listener)
 
     const storage = new Storage()
 
@@ -157,18 +127,11 @@ describe("watch/unwatch", () => {
   })
 
   test("doesn't call unwatched listeners", () => {
+    mockAttachDetach()
+
     let internalListener: StorageWatchListener = () => {}
-    global.chrome = {
-      storage: {
-        // @ts-ignore
-        onChanged: {
-          addListener: (listener) => {
-            internalListener = listener
-          },
-          removeListener: jest.fn()
-        }
-      }
-    }
+    global.chrome.storage.onChanged.addListener = (listener) =>
+      (internalListener = listener)
 
     const storage = new Storage()
 
