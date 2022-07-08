@@ -9,6 +9,10 @@ type StorageWatchEventListener = Parameters<
 >[0]
 
 export type StorageAreaName = Parameters<StorageWatchEventListener>[1]
+export type StorageWatchListener = (
+  c: chrome.storage.StorageChange,
+  area: StorageAreaName
+) => void
 
 const hasWindow = typeof window !== "undefined"
 
@@ -21,6 +25,8 @@ export class Storage {
   #client: chrome.storage.StorageArea = null
   #localClient = hasWindow ? window.localStorage : null
   #area: StorageAreaName = null
+  #watchListeners: Record<string, StorageWatchListener[]> = {}
+  #internalStorageListener: StorageWatchListener | null = null
 
   hasExtensionAPI = false
 
@@ -31,7 +37,7 @@ export class Storage {
     this.#secretSet = new Set(secretKeyList)
     this.#area = storageArea
 
-    if (!!chrome?.storage) {
+    if (chrome?.storage) {
       this.#client = chrome.storage[storageArea]
       this.hasExtensionAPI = true
     }
@@ -140,19 +146,32 @@ export class Storage {
       resolve(undefined)
     })
 
-  watch = (
-    callbackMap: Record<
-      string,
-      (c: chrome.storage.StorageChange, area: StorageAreaName) => void
-    >
-  ) =>
-    this.hasExtensionAPI &&
-    chrome.storage.onChanged.addListener((changes, areaName) => {
+  watch = (callbackMap: Record<string, StorageWatchListener>): boolean => {
+    if (!this.isWatchingSupported()) return false
+
+    for (const [key, callback] of Object.entries(callbackMap)) {
+      if (!this.#watchListeners[key]) {
+        this.#watchListeners[key] = []
+      }
+      this.#watchListeners[key].push(callback)
+    }
+
+    if (this.#internalStorageListener === null) {
+      this.#attachInternalStorageListener()
+    }
+
+    return true
+  }
+
+  isWatchingSupported = () => this.hasExtensionAPI
+
+  #attachInternalStorageListener = () => {
+    this.#internalStorageListener = (changes, areaName) => {
       if (areaName !== this.#area) {
         return
       }
 
-      const callbackKeySet = new Set(Object.keys(callbackMap))
+      const callbackKeySet = new Set(Object.keys(this.#watchListeners))
       const changeKeys = Object.keys(changes)
 
       const relevantKeyList = changeKeys.filter((key) =>
@@ -164,15 +183,54 @@ export class Storage {
       }
 
       for (const key of relevantKeyList) {
-        callbackMap[key]?.(
-          {
-            newValue: this.#parseValue(changes[key].newValue),
-            oldValue: this.#parseValue(changes[key].oldValue)
-          },
-          areaName
+        this.#watchListeners[key]?.forEach((callback) =>
+          callback(
+            {
+              newValue: this.#parseValue(changes[key].newValue),
+              oldValue: this.#parseValue(changes[key].oldValue)
+            },
+            areaName
+          )
         )
       }
-    })
+    }
+
+    chrome.storage.onChanged.addListener(this.#internalStorageListener)
+  }
+
+  unwatch = (callbackMap: Record<string, StorageWatchListener>): boolean => {
+    if (!this.isWatchingSupported()) return false
+
+    for (const [key, callback] of Object.entries(callbackMap)) {
+      if (!this.#watchListeners[key]) continue
+
+      this.#watchListeners[key] = this.#watchListeners[key].filter(
+        (cb) => cb !== callback
+      )
+
+      if (this.#watchListeners[key].length === 0) {
+        delete this.#watchListeners[key]
+      }
+    }
+
+    if (Object.keys(this.#watchListeners).length === 0) {
+      this.#detachInternalStorageListener()
+    }
+
+    return true
+  }
+
+  unwatchAll = () => {
+    this.#watchListeners = {}
+    this.#detachInternalStorageListener()
+  }
+
+  #detachInternalStorageListener() {
+    if (this.#internalStorageListener !== null) {
+      chrome.storage.onChanged.removeListener(this.#internalStorageListener)
+      this.#internalStorageListener = null
+    }
+  }
 
   #parseValue(rawValue: any) {
     try {

@@ -30,7 +30,7 @@
 
 ## Documentation
 
-Visit: [https://docs.plasmo.com/framework/storage](https://docs.plasmo.com/framework/storage)
+Visit: [https://docs.plasmo.com/framework-api/storage](https://docs.plasmo.com/framework-api/storage)
 
 ## Usage Examples
 
