@@ -3,16 +3,17 @@
  * Licensed under the MIT license.
  * This module share storage between chrome storage and local storage.
  */
-
-type StorageWatchEventListener = Parameters<
+export type StorageWatchEventListener = Parameters<
   typeof chrome.storage.onChanged.addListener
 >[0]
 
 export type StorageAreaName = Parameters<StorageWatchEventListener>[1]
-export type StorageWatchListener = (
-  c: chrome.storage.StorageChange,
+export type StorageWatchCallback = (
+  change: chrome.storage.StorageChange,
   area: StorageAreaName
 ) => void
+
+export type StorageCallbackMap = Record<string, StorageWatchCallback>
 
 const hasWindow = typeof window !== "undefined"
 
@@ -25,8 +26,15 @@ export class Storage {
   #client: chrome.storage.StorageArea = null
   #localClient = hasWindow ? window.localStorage : null
   #area: StorageAreaName = null
-  #watchListeners: Record<string, StorageWatchListener[]> = {}
-  #internalStorageListener: StorageWatchListener | null = null
+
+  // TODO: Make another map for local storage
+  #chromeStorageCommsMap: Map<
+    string,
+    {
+      callbackSet: Set<StorageWatchCallback>
+      listener: StorageWatchEventListener
+    }
+  > = new Map()
 
   hasExtensionAPI = false
 
@@ -146,90 +154,104 @@ export class Storage {
       resolve(undefined)
     })
 
-  watch = (callbackMap: Record<string, StorageWatchListener>): boolean => {
-    if (!this.isWatchingSupported()) return false
-
-    for (const [key, callback] of Object.entries(callbackMap)) {
-      if (!this.#watchListeners[key]) {
-        this.#watchListeners[key] = []
-      }
-      this.#watchListeners[key].push(callback)
+  watch = (callbackMap: StorageCallbackMap): boolean => {
+    if (!this.isWatchingSupported()) {
+      return false
     }
 
-    if (this.#internalStorageListener === null) {
-      this.#attachInternalStorageListener()
-    }
+    this.#addListener(callbackMap)
 
     return true
   }
 
   isWatchingSupported = () => this.hasExtensionAPI
 
-  #attachInternalStorageListener = () => {
-    this.#internalStorageListener = (changes, areaName) => {
-      if (areaName !== this.#area) {
+  #addListener = (callbackMap: StorageCallbackMap) => {
+    Object.entries(callbackMap).forEach(([key, callback]) => {
+      const callbackSet =
+        this.#chromeStorageCommsMap.get(key)?.callbackSet || new Set()
+
+      callbackSet.add(callback)
+
+      if (callbackSet.size > 1) {
         return
       }
 
-      const callbackKeySet = new Set(Object.keys(this.#watchListeners))
-      const changeKeys = Object.keys(changes)
+      const chromeStorageListener: StorageWatchCallback = (
+        changes,
+        areaName
+      ) => {
+        if (areaName !== this.#area) {
+          return
+        }
 
-      const relevantKeyList = changeKeys.filter((key) =>
-        callbackKeySet.has(key)
-      )
+        const callbackKeySet = new Set(Object.keys(callbackMap))
+        const changeKeys = Object.keys(changes)
 
-      if (relevantKeyList.length === 0) {
-        return
-      }
-
-      for (const key of relevantKeyList) {
-        this.#watchListeners[key]?.forEach((callback) =>
-          callback(
-            {
-              newValue: this.#parseValue(changes[key].newValue),
-              oldValue: this.#parseValue(changes[key].oldValue)
-            },
-            areaName
-          )
+        const relevantKeyList = changeKeys.filter((key) =>
+          callbackKeySet.has(key)
         )
-      }
-    }
 
-    chrome.storage.onChanged.addListener(this.#internalStorageListener)
+        if (relevantKeyList.length === 0) {
+          return
+        }
+
+        for (const key of relevantKeyList) {
+          const storageComms = this.#chromeStorageCommsMap.get(key)
+
+          storageComms?.callbackSet?.forEach((callback) => {
+            callback(
+              {
+                newValue: this.#parseValue(changes[key].newValue),
+                oldValue: this.#parseValue(changes[key].oldValue)
+              },
+              areaName
+            )
+          })
+        }
+      }
+
+      chrome.storage.onChanged.addListener(chromeStorageListener)
+
+      this.#chromeStorageCommsMap.set(key, {
+        callbackSet,
+        listener: chromeStorageListener
+      })
+    })
   }
 
-  unwatch = (callbackMap: Record<string, StorageWatchListener>): boolean => {
-    if (!this.isWatchingSupported()) return false
-
-    for (const [key, callback] of Object.entries(callbackMap)) {
-      if (!this.#watchListeners[key]) continue
-
-      this.#watchListeners[key] = this.#watchListeners[key].filter(
-        (cb) => cb !== callback
-      )
-
-      if (this.#watchListeners[key].length === 0) {
-        delete this.#watchListeners[key]
-      }
+  unwatch = (callbackMap: StorageCallbackMap): boolean => {
+    if (!this.isWatchingSupported()) {
+      return false
     }
-
-    if (Object.keys(this.#watchListeners).length === 0) {
-      this.#detachInternalStorageListener()
-    }
-
+    this.#removeListener(callbackMap)
     return true
   }
 
-  unwatchAll = () => {
-    this.#watchListeners = {}
-    this.#detachInternalStorageListener()
+  #removeListener(callbackMap: StorageCallbackMap) {
+    Object.entries(callbackMap)
+      .filter(([key]) => this.#chromeStorageCommsMap.has(key))
+      .forEach(([key, callback]) => {
+        const storageComms = this.#chromeStorageCommsMap.get(key)
+        storageComms.callbackSet.delete(callback)
+
+        if (storageComms.callbackSet.size === 0) {
+          this.#chromeStorageCommsMap.delete(key)
+          chrome.storage.onChanged.removeListener(storageComms.listener)
+        }
+      })
   }
 
-  #detachInternalStorageListener() {
-    if (this.#internalStorageListener !== null) {
-      chrome.storage.onChanged.removeListener(this.#internalStorageListener)
-      this.#internalStorageListener = null
-    }
+  unwatchAll = () => {
+    this.#removeAllListener()
+  }
+
+  #removeAllListener() {
+    this.#chromeStorageCommsMap.forEach(({ listener }) =>
+      chrome.storage.onChanged.removeListener(listener)
+    )
+
+    this.#chromeStorageCommsMap.clear()
   }
 
   #parseValue(rawValue: any) {

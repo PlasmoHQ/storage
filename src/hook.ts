@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import { Storage, StorageAreaName } from "./index"
+import { Storage, StorageAreaName, StorageCallbackMap } from "./index"
 
 /**
  * https://docs.plasmo.com/framework-api/storage
@@ -37,13 +37,14 @@ export const useStorage = <T = any>(
 
   useEffect(() => {
     isMounted.current = true
-    const watchConfig = {
-      [key]: (c) => {
+    const watchConfig: StorageCallbackMap = {
+      [key]: (change) => {
         if (isMounted.current) {
-          setRenderValue(c.newValue)
+          setRenderValue(change.newValue)
         }
       }
     }
+
     storageRef.current.watch(watchConfig)
 
     storageRef.current.get<T>(key).then(async (v) => {
