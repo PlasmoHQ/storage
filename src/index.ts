@@ -17,11 +17,6 @@ export type StorageCallbackMap = Record<string, StorageWatchCallback>
 
 const hasWindow = typeof window !== "undefined"
 
-export type StorageConfig = {
-  storageArea: StorageAreaName,
-  secretKeyList: string[] 
-}
-
 /**
  * https://docs.plasmo.com/framework-api/storage
  */
@@ -43,17 +38,15 @@ export class Storage {
 
   hasExtensionAPI = false
 
-  constructor(config: StorageConfig = {
-    storageArea: "sync" as StorageAreaName,
-    secretKeyList: []
-  }) {
-    const {storageArea, secretKeyList} = config;
-    
+  constructor({
+    area = "sync" as StorageAreaName,
+    secretKeyList = [] as string[]
+  } = {}) {
     this.#secretSet = new Set(secretKeyList)
-    this.#area = storageArea
+    this.#area = area
 
     if (chrome?.storage) {
-      this.#client = chrome.storage[storageArea]
+      this.#client = chrome.storage[this.#area]
       this.hasExtensionAPI = true
     }
   }
@@ -273,6 +266,8 @@ export class Storage {
     return undefined
   }
 }
+
+export type StorageOptions = ConstructorParameters<typeof Storage>[0]
 
 export * from "./hook"
 
