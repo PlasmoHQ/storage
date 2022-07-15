@@ -19,6 +19,7 @@ export const useStorage = <T = any>(
     | {
         key: string
         area?: StorageAreaName
+        isSecret?: boolean
       },
   onInit?: ((v?: T) => T) | T
 ) => {
@@ -33,7 +34,12 @@ export const useStorage = <T = any>(
   const isMounted = useRef(false)
 
   // Storage state
-  const storageRef = useRef(new Storage(isStringKey ? "sync" : rawKey.area))
+  const storageRef = useRef(
+    new Storage({
+      area: isStringKey ? "sync" : rawKey.area,
+      secretKeyList: !isStringKey && rawKey.isSecret ? [key] : []
+    })
+  )
 
   useEffect(() => {
     isMounted.current = true
