@@ -17,6 +17,11 @@ export type StorageCallbackMap = Record<string, StorageWatchCallback>
 
 const hasWindow = typeof window !== "undefined"
 
+export type StorageConfig = {
+  storageArea: StorageAreaName,
+  secretKeyList: string[] 
+}
+
 /**
  * https://docs.plasmo.com/framework-api/storage
  */
@@ -38,10 +43,12 @@ export class Storage {
 
   hasExtensionAPI = false
 
-  constructor(
-    storageArea = "sync" as StorageAreaName,
-    secretKeyList: string[] = []
-  ) {
+  constructor(config: StorageConfig = {
+    storageArea: "sync" as StorageAreaName,
+    secretKeyList: []
+  }) {
+    const {storageArea, secretKeyList} = config;
+    
     this.#secretSet = new Set(secretKeyList)
     this.#area = storageArea
 
