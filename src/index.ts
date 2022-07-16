@@ -106,8 +106,13 @@ export class Storage {
       }
 
       if (this.hasExtensionAPI) {
-        if (this.#area !== "managed") {
+        checkQuota: if (this.#area !== "managed") {
           const client = chrome.storage[this.#area]
+
+          if (!client.getBytesInUse) {
+            break checkQuota
+          }
+
           const quota = client.QUOTA_BYTES || 1
 
           const newValueByteSize = byteLengthCharCode(value)
