@@ -3,13 +3,15 @@
  * Licensed under the MIT license.
  * This module share storage between chrome storage and local storage.
  */
+import browser from "webextension-polyfill"
+
 export type StorageWatchEventListener = Parameters<
-  typeof chrome.storage.onChanged.addListener
+  typeof browser.storage.onChanged.addListener
 >[0]
 
 export type StorageAreaName = Parameters<StorageWatchEventListener>[1]
 export type StorageWatchCallback = (
-  change: chrome.storage.StorageChange,
+  change: browser.Storage.StorageChange,
   area: StorageAreaName
 ) => void
 
@@ -23,7 +25,7 @@ const hasWindow = typeof window !== "undefined"
 export class Storage {
   #secretSet: Set<string>
 
-  #client: chrome.storage.StorageArea = null
+  #client: browser.Storage.StorageArea = null
   #localClient = hasWindow ? window.localStorage : null
   #area: StorageAreaName = null
 
@@ -46,7 +48,7 @@ export class Storage {
     this.#area = area
 
     if (chrome?.storage) {
-      this.#client = chrome.storage[this.#area]
+      this.#client = browser.storage[this.#area]
       this.hasExtensionAPI = true
     }
   }
@@ -65,7 +67,7 @@ export class Storage {
 
       const previousValue = this.#localClient?.getItem(key)
 
-      this.#client.get(key, (s) => {
+      this.#client.get(key).then((s) => {
         const value = s[key] as string
         this.#localClient?.setItem(key, value)
         resolve(value !== previousValue)
@@ -78,7 +80,7 @@ export class Storage {
   get = <T = string>(key: string) =>
     new Promise<T>((resolve) => {
       if (this.hasExtensionAPI) {
-        this.#client.get(key, (s) => {
+        this.#client.get(key).then((s) => {
           resolve(this.#parseValue(s[key]) as T)
         })
       } else {
@@ -107,13 +109,18 @@ export class Storage {
 
       if (this.hasExtensionAPI) {
         checkQuota: if (this.#area !== "managed") {
-          const client = chrome.storage[this.#area]
+          const client = browser.storage[this.#area]
 
-          if (!client.getBytesInUse) {
+          // Explicit access to the un-polyfilled version is used here
+          // as the polyfill might override the non-existent function
+          if (!chrome.storage[this.#area].getBytesInUse) {
             break checkQuota
           }
 
-          const quota = client.QUOTA_BYTES || 1
+          // Firefox doesn't support quota bytes so the defined value at
+          // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/storage/sync#storage_quotas_for_sync_data
+          // is used
+          const quota = client.QUOTA_BYTES || 102400
 
           const newValueByteSize = byteLengthCharCode(value)
           const [byteInUse, oldValueByteSize] = await Promise.all([
@@ -137,7 +144,7 @@ export class Storage {
           }
         }
 
-        this.#client.set({ [key]: value }, () => resolve(warning))
+        this.#client.set({ [key]: value }).then(() => resolve(warning))
         return
       }
 
@@ -152,7 +159,7 @@ export class Storage {
       }
 
       if (this.hasExtensionAPI) {
-        this.#client.remove(key, resolve)
+        this.#client.remove(key).then(resolve)
         return
       }
 
@@ -216,7 +223,7 @@ export class Storage {
         }
       }
 
-      chrome.storage.onChanged.addListener(chromeStorageListener)
+      browser.storage.onChanged.addListener(chromeStorageListener)
 
       this.#chromeStorageCommsMap.set(key, {
         callbackSet,
@@ -242,7 +249,7 @@ export class Storage {
 
         if (storageComms.callbackSet.size === 0) {
           this.#chromeStorageCommsMap.delete(key)
-          chrome.storage.onChanged.removeListener(storageComms.listener)
+          browser.storage.onChanged.removeListener(storageComms.listener)
         }
       })
   }
@@ -253,7 +260,7 @@ export class Storage {
 
   #removeAllListener() {
     this.#chromeStorageCommsMap.forEach(({ listener }) =>
-      chrome.storage.onChanged.removeListener(listener)
+      browser.storage.onChanged.removeListener(listener)
     )
 
     this.#chromeStorageCommsMap.clear()
