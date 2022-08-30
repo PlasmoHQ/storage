@@ -6,7 +6,7 @@
 import browser from "webextension-polyfill"
 
 export type StorageWatchEventListener = Parameters<
-  typeof browser.storage.onChanged.addListener
+  typeof chrome.storage.onChanged.addListener
 >[0]
 
 export type StorageAreaName = Parameters<StorageWatchEventListener>[1]
@@ -17,17 +17,19 @@ export type StorageWatchCallback = (
 
 export type StorageCallbackMap = Record<string, StorageWatchCallback>
 
-const hasWindow = typeof window !== "undefined"
+export type StorageArea = browser.Storage.StorageArea &
+  chrome.storage.StorageArea
 
+const hasWindow = typeof window !== "undefined"
 /**
  * https://docs.plasmo.com/framework-api/storage
  */
 export class Storage {
-  #secretSet: Set<string>
-
-  #client: browser.Storage.StorageArea = null
+  #storage: browser.Storage.Static
+  #client: StorageArea
   #localClient = hasWindow ? window.localStorage : null
-  #area: StorageAreaName = null
+
+  #area: StorageAreaName
 
   // TODO: Make another map for local storage
   #chromeStorageCommsMap: Map<
@@ -38,6 +40,8 @@ export class Storage {
     }
   > = new Map()
 
+  #secretSet: Set<string>
+
   hasExtensionAPI = false
 
   constructor({
@@ -47,8 +51,9 @@ export class Storage {
     this.#secretSet = new Set(secretKeyList)
     this.#area = area
 
-    if (chrome?.storage) {
-      this.#client = browser.storage[this.#area]
+    if (chrome?.storage || browser.storage) {
+      this.#storage = browser.storage
+      this.#client = this.#storage[this.#area]
       this.hasExtensionAPI = true
     }
   }
@@ -109,18 +114,18 @@ export class Storage {
 
       if (this.hasExtensionAPI) {
         checkQuota: if (this.#area !== "managed") {
-          const client = browser.storage[this.#area]
-
           // Explicit access to the un-polyfilled version is used here
           // as the polyfill might override the non-existent function
           if (!chrome.storage[this.#area].getBytesInUse) {
             break checkQuota
           }
 
+          const client = this.#storage[this.#area] as StorageArea
+
           // Firefox doesn't support quota bytes so the defined value at
           // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/storage/sync#storage_quotas_for_sync_data
           // is used
-          const quota = client.QUOTA_BYTES || 102400
+          const quota: number = client["QUOTA_BYTES"] || 102400
 
           const newValueByteSize = byteLengthCharCode(value)
           const [byteInUse, oldValueByteSize] = await Promise.all([
@@ -223,7 +228,7 @@ export class Storage {
         }
       }
 
-      browser.storage.onChanged.addListener(chromeStorageListener)
+      this.#storage.onChanged.addListener(chromeStorageListener)
 
       this.#chromeStorageCommsMap.set(key, {
         callbackSet,
@@ -249,7 +254,7 @@ export class Storage {
 
         if (storageComms.callbackSet.size === 0) {
           this.#chromeStorageCommsMap.delete(key)
-          browser.storage.onChanged.removeListener(storageComms.listener)
+          this.#storage.onChanged.removeListener(storageComms.listener)
         }
       })
   }
@@ -260,7 +265,7 @@ export class Storage {
 
   #removeAllListener() {
     this.#chromeStorageCommsMap.forEach(({ listener }) =>
-      browser.storage.onChanged.removeListener(listener)
+      this.#storage.onChanged.removeListener(listener)
     )
 
     this.#chromeStorageCommsMap.clear()
