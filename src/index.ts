@@ -51,7 +51,7 @@ export class Storage {
     this.#secretSet = new Set(secretKeyList)
     this.#area = area
 
-    if (chrome?.storage || browser.storage) {
+    if (browser.storage) {
       this.#storage = browser.storage
       this.#client = this.#storage[this.#area]
       this.hasExtensionAPI = true

@@ -53,7 +53,7 @@ export const useStorage = <T = any>(
 
     storageRef.current.watch(watchConfig)
 
-    storageRef.current.get<T>(key).then(async (v) => {
+    storageRef.current.get<T>(key)?.then(async (v) => {
       if (onInit instanceof Function) {
         const initValue = await onInit?.(v)
         if (initValue !== undefined) {
