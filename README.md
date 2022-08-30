@@ -32,6 +32,26 @@
 
 Visit: [https://docs.plasmo.com/framework-api/storage](https://docs.plasmo.com/framework-api/storage)
 
+## Firefox
+
+To use the storage API on Firefox during development you need to add an addon ID to your manifest, otherwise you will get this error:
+
+> Error: The storage API will not work with a temporary addon ID. Please add an explicit addon ID to your manifest. For more information see https://mzl.la/3lPk1aE.
+
+To add an addon ID to your manifest, add this to your package.json:
+
+```JSON
+"manifest": {
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "your-id@example.com"
+    }
+  }
+}
+```
+
+During development, you may use any ID. If you have published your extension, you can use the ID assigned by Mozilla Addons.
+
 ## Usage Examples
 
 - [MICE](https://github.com/PlasmoHQ/mice)

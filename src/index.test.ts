@@ -5,11 +5,17 @@
  */
 import { beforeEach, describe, expect, jest, test } from "@jest/globals"
 import { act, renderHook } from "@testing-library/react"
+import type Browser from "webextension-polyfill"
 
-import { Storage, StorageWatchEventListener, useStorage } from "~index"
+import type { StorageWatchEventListener } from "~index"
+
+const browserMock = {} as any
+
+jest.mock("webextension-polyfill", () => browserMock)
+
+const { Storage, useStorage } = await import("~index")
 
 beforeEach(() => {
-  global.chrome = undefined
   localStorage.clear()
 })
 
@@ -20,40 +26,44 @@ const createStorageMock = ({ getTriggers = false } = {}) => {
     removeListener: jest.fn()
   }
 
-  global.chrome = {
-    storage: {
+  const storage: Browser.Storage.Static = {
+    //@ts-ignore
+    onChanged: {
+      addListener: mockOutput.addListener,
+      removeListener: mockOutput.removeListener
+    },
+    sync: {
+      // Needed because react hook tries to directly read the value
       //@ts-ignore
-      onChanged: {
-        addListener: mockOutput.addListener,
-        removeListener: mockOutput.removeListener
-      },
-      sync: {
-        // Needed because react hook tries to directly read the value
-        //@ts-ignore
-        get: jest.fn()
-      }
+      get: async () => jest.fn(),
+      //@ts-ignore
+      set: async () => jest.fn()
     }
   }
 
   if (getTriggers) {
-    global.chrome.storage.onChanged.addListener = (listener) => {
+    storage.onChanged.addListener = (listener) => {
       mockOutput.triggerChange = listener
     }
   }
+
+  browserMock.storage = storage
 
   return mockOutput
 }
 
 describe("react hook", () => {
-  test("stores basic text data ", () => {
+  test("stores basic text data ", async () => {
     const key = "test"
 
     const value = "hello world"
 
     const { result, unmount } = renderHook(() => useStorage(key))
-    act(() => {
-      result.current[1](value)
+    await act(async () => {
+      await result.current[1](value)
     })
+
+    expect(result.current[0]).toBe(value)
 
     expect(localStorage.getItem(key)).toBe(JSON.stringify(value))
     unmount()
@@ -62,8 +72,11 @@ describe("react hook", () => {
   test("removes watch listener when unmounting", () => {
     const { addListener, removeListener } = createStorageMock()
 
-    const { unmount } = renderHook(() => useStorage("stuff"))
+    const { result, unmount } = renderHook(() => useStorage("stuff"))
+
     expect(addListener).toHaveBeenCalled()
+
+    expect(result.current[0]).toBeUndefined()
 
     unmount()
 

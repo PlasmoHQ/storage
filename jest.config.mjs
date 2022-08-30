@@ -8,6 +8,11 @@ const config = {
   moduleFileExtensions: ["js", "ts"],
   preset: "ts-jest/presets/default-esm",
   globals: {
+    chrome: {
+      runtime: {
+        id: "plasmo-storage-test"
+      }
+    },
     "ts-jest": {
       useESM: true
     }
