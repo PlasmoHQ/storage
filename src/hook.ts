@@ -79,10 +79,18 @@ export const useStorage = <T = any>(
 
   // Store the value into chrome storage, then set its render state
   const persistValue = useCallback(
-    (newValue: T) =>
-      setStoreValue(newValue).then(
-        () => isMounted.current && setRenderValue(newValue)
-      ),
+    async (newValue: T | ((oldValue?: T) => T | Promise<T>)) => {
+      if (typeof newValue === "function") {
+        // @ts-expect-error | This will flag it as
+        // an error as the compiler doesn't know
+        // the type of "T"
+        newValue = await newValue(renderValue)
+      }
+
+      await setStoreValue(newValue as T)
+
+      return isMounted.current && setRenderValue(newValue as T)
+    },
     [setStoreValue]
   )
 
