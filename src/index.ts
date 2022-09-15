@@ -41,20 +41,27 @@ export class Storage {
   > = new Map()
 
   #secretSet: Set<string>
+  #allSecret: boolean = false
 
   hasExtensionAPI = false
 
   constructor({
     area = "sync" as StorageAreaName,
-    secretKeyList = [] as string[]
+    secretKeyList = [] as string[] | boolean
   } = {}) {
-    this.#secretSet = new Set(secretKeyList)
+    this.#secretSet = new Set(
+      typeof secretKeyList !== "boolean" ? secretKeyList : []
+    )
     this.#area = area
 
     if (browser.storage) {
       this.#storage = browser.storage
       this.#client = this.#storage[this.#area]
       this.hasExtensionAPI = true
+    }
+
+    if (typeof secretKeyList === "boolean") {
+      this.#allSecret = secretKeyList
     }
   }
 
@@ -65,7 +72,11 @@ export class Storage {
    */
   sync = (key: string) =>
     new Promise((resolve) => {
-      if (this.#secretSet.has(key) || !this.hasExtensionAPI) {
+      if (
+        this.#secretSet.has(key) ||
+        this.#allSecret ||
+        !this.hasExtensionAPI
+      ) {
         resolve(false)
         return
       }
@@ -108,7 +119,7 @@ export class Storage {
       let warning: string
 
       // If not a secret, we set it in localstorage as well
-      if (!this.#secretSet.has(key)) {
+      if (!this.#secretSet.has(key) && !this.#allSecret) {
         this.#localClient?.setItem(key, value)
       }
 
@@ -159,7 +170,7 @@ export class Storage {
   remove = (key: string) =>
     new Promise<void>((resolve) => {
       // If not a secret, we set it in localstorage as well
-      if (!this.#secretSet.has(key)) {
+      if (!this.#secretSet.has(key) && !this.#allSecret) {
         this.#localClient?.removeItem(key)
       }
 
