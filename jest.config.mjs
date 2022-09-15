@@ -6,16 +6,16 @@ const config = {
   clearMocks: true,
   testEnvironment: "jsdom",
   moduleFileExtensions: ["js", "ts"],
-  preset: "ts-jest/presets/default-esm",
+  extensionsToTreatAsEsm: [".ts"],
   globals: {
     chrome: {
       runtime: {
         id: "plasmo-storage-test"
       }
-    },
-    "ts-jest": {
-      useESM: true
     }
+  },
+  transform: {
+    "^.+.ts?$": ["ts-jest", { isolatedModules: true, useESM: true }]
   },
   testMatch: ["**/*.test.ts"],
   verbose: true,
