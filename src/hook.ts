@@ -7,13 +7,15 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { Storage, StorageAreaName, StorageCallbackMap } from "./index"
 
+type Setter<T> = ((v?: T) => T) | T
+
 /**
  * https://docs.plasmo.com/framework-api/storage
  * @param rawKey
  * @param onInit  If it is a function, the returned value will be rendered and persisted. If it is a static value, it will only be rendered, not persisted
  * @returns
  */
-export const useStorage = <T extends any, Setter extends ((v?: T) => T) | T>(
+export const useStorage = <T = any>(
   rawKey:
     | string
     | {
@@ -21,7 +23,7 @@ export const useStorage = <T extends any, Setter extends ((v?: T) => T) | T>(
         area?: StorageAreaName
         isSecret?: boolean
       },
-  onInit?: Setter
+  onInit?: Setter<T>
 ) => {
   const isStringKey = typeof rawKey === "string"
 
@@ -78,9 +80,8 @@ export const useStorage = <T extends any, Setter extends ((v?: T) => T) | T>(
 
   // Store the value into chrome storage, then set its render state
   const persistValue = useCallback(
-    async (setter: Setter) => {
-      const newValue =
-        typeof setter === "function" ? setter(renderValue) : setter
+    async (setter: Setter<T>) => {
+      const newValue = setter instanceof Function ? setter(renderValue) : setter
 
       await setStoreValue(newValue)
 

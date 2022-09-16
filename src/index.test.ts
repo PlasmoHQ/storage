@@ -70,6 +70,26 @@ describe("react hook", () => {
     unmount()
   })
 
+  test("mutate with setter function ", async () => {
+    const key = "test"
+
+    const value = "hello"
+
+    const setter = (prev: string) => prev + " world"
+
+    const { result, unmount } = renderHook(() => useStorage(key, value))
+
+    await act(async () => {
+      await result.current[1](setter)
+    })
+
+    const newValue = setter(value)
+
+    expect(result.current[0]).toBe(newValue)
+    expect(localStorage.getItem(key)).toBe(JSON.stringify(newValue))
+    unmount()
+  })
+
   test("removes watch listener when unmounting", () => {
     const { addListener, removeListener } = createStorageMock()
 
