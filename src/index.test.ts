@@ -53,7 +53,7 @@ const createStorageMock = ({ getTriggers = false } = {}) => {
 }
 
 describe("react hook", () => {
-  test.only("stores basic text data ", async () => {
+  test("stores basic text data ", async () => {
     const key = "test"
 
     const value = "hello world"

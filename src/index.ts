@@ -88,18 +88,20 @@ export class Storage {
     return value !== previousValue
   }
 
-  // If chrome storage is not available, use localStorage
-  // TODO: TRY asking for storage permission and retry?
-  #getValue = async (key: string) =>
-    this.hasExtensionAPI
-      ? this.#client.get(key).then((s) => s[key])
-      : this.#localClient?.getItem(key)
-
   /**
    * Get value from either local storage or chrome storage.
    */
-  get = async <T = string>(key: string) =>
-    this.#parseValue(await this.#getValue(key)) as T
+  get = async <T = string>(key: string) => {
+    if (this.hasExtensionAPI) {
+      const dataMap = await this.#client.get(key)
+      return this.#parseValue(dataMap[key]) as T
+    } else {
+      // If chrome storage is not available, use localStorage
+      // TODO: TRY asking for storage permission and retry?
+      const storedValue = this.#localClient?.getItem(key)
+      return this.#parseValue(storedValue) as T
+    }
+  }
 
   /**
    * Set the value. If it is a secret, it will only be set in extension storage.
