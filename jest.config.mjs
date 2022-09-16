@@ -20,7 +20,7 @@ const config = {
   testMatch: ["**/*.test.ts"],
   verbose: true,
   moduleNameMapper: {
-    "^~(.*)$": "<rootDir>/dist/$1",
+    "^~(.*)$": "<rootDir>/src/$1",
     "^(\\.{1,2}/.*)\\.js$": "$1"
   }
 }
