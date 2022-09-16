@@ -5,6 +5,8 @@
  */
 import browser from "webextension-polyfill"
 
+import { getQuotaWarning } from "~get-quota-warning"
+
 export type StorageWatchEventListener = Parameters<
   typeof chrome.storage.onChanged.addListener
 >[0]
@@ -20,12 +22,14 @@ export type StorageCallbackMap = Record<string, StorageWatchCallback>
 export type StorageArea = browser.Storage.StorageArea &
   chrome.storage.StorageArea
 
+export type InternalStorage = browser.Storage.Static
+
 const hasWindow = typeof window !== "undefined"
 /**
  * https://docs.plasmo.com/framework-api/storage
  */
 export class Storage {
-  #storage: browser.Storage.Static
+  #storage: InternalStorage
   #client: StorageArea
   #localClient = hasWindow ? window.localStorage : null
 
@@ -47,22 +51,22 @@ export class Storage {
 
   constructor({
     area = "sync" as StorageAreaName,
-    secretKeyList = [] as string[] | boolean
+    secretKeyList = [] as string[],
+    allSecret = false
   } = {}) {
-    this.#secretSet = new Set(
-      typeof secretKeyList !== "boolean" ? secretKeyList : []
-    )
+    this.updateSecret(secretKeyList)
     this.#area = area
+    this.#allSecret = allSecret
 
     if (browser.storage) {
       this.#storage = browser.storage
       this.#client = this.#storage[this.#area]
       this.hasExtensionAPI = true
     }
+  }
 
-    if (typeof secretKeyList === "boolean") {
-      this.#allSecret = secretKeyList
-    }
+  updateSecret(secretKeyList: string[]) {
+    this.#secretSet = new Set(secretKeyList)
   }
 
   /**
@@ -70,117 +74,67 @@ export class Storage {
    * @param key
    * @returns false if the value is unchanged or it is a secret key.
    */
-  sync = (key: string) =>
-    new Promise((resolve) => {
-      if (
-        this.#secretSet.has(key) ||
-        this.#allSecret ||
-        !this.hasExtensionAPI
-      ) {
-        resolve(false)
-        return
-      }
+  sync = async (key: string) => {
+    if (this.#secretSet.has(key) || this.#allSecret || !this.hasExtensionAPI) {
+      return false
+    }
 
-      const previousValue = this.#localClient?.getItem(key)
+    const previousValue = this.#localClient?.getItem(key)
+    const dataSet = await this.#client.get(key)
+    const value = dataSet[key] as string
 
-      this.#client.get(key).then((s) => {
-        const value = s[key] as string
-        this.#localClient?.setItem(key, value)
-        resolve(value !== previousValue)
-      })
-    })
+    this.#localClient?.setItem(key, value)
+
+    return value !== previousValue
+  }
+
+  // If chrome storage is not available, use localStorage
+  // TODO: TRY asking for storage permission and retry?
+  #getValue = async (key: string) =>
+    this.hasExtensionAPI
+      ? this.#client.get(key).then((s) => s[key])
+      : this.#localClient?.getItem(key)
 
   /**
    * Get value from either local storage or chrome storage.
    */
-  get = <T = string>(key: string) =>
-    new Promise<T>((resolve) => {
-      if (this.hasExtensionAPI) {
-        this.#client.get(key).then((s) => {
-          resolve(this.#parseValue(s[key]) as T)
-        })
-      } else {
-        // If chrome storage is not available, use localStorage
-        // TODO: TRY asking for storage permission and retry?
-        const value = this.#localClient?.getItem(key)
-        resolve(this.#parseValue(value) as T)
-      }
-    })
+  get = async <T = string>(key: string) =>
+    this.#parseValue(await this.#getValue(key)) as T
 
   /**
    * Set the value. If it is a secret, it will only be set in extension storage.
    * Returns a warning if storage capacity is almost full.
    * Throws error if the new item will make storage full
    */
-  set = (key: string, rawValue: any) =>
-    new Promise<string | undefined>(async (resolve, reject) => {
-      const value = JSON.stringify(rawValue)
+  set = async (key: string, rawValue: any) => {
+    const value = JSON.stringify(rawValue)
 
-      let warning: string
+    // If not a secret, we set it in localstorage as well
+    if (!this.#secretSet.has(key) && !this.#allSecret) {
+      this.#localClient?.setItem(key, value)
+    }
 
-      // If not a secret, we set it in localstorage as well
-      if (!this.#secretSet.has(key) && !this.#allSecret) {
-        this.#localClient?.setItem(key, value)
-      }
+    if (!this.hasExtensionAPI) {
+      return undefined
+    }
 
-      if (this.hasExtensionAPI) {
-        checkQuota: if (this.#area !== "managed") {
-          // Explicit access to the un-polyfilled version is used here
-          // as the polyfill might override the non-existent function
-          if (!chrome.storage[this.#area].getBytesInUse) {
-            break checkQuota
-          }
+    const warning = await getQuotaWarning(this.#area, this.#storage, key, value)
 
-          const client = this.#storage[this.#area] as StorageArea
+    await this.#client.set({ [key]: value })
 
-          // Firefox doesn't support quota bytes so the defined value at
-          // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/storage/sync#storage_quotas_for_sync_data
-          // is used
-          const quota: number = client["QUOTA_BYTES"] || 102400
+    return warning
+  }
 
-          const newValueByteSize = byteLengthCharCode(value)
-          const [byteInUse, oldValueByteSize] = await Promise.all([
-            client.getBytesInUse(),
-            client.getBytesInUse(key)
-          ])
+  remove = async (key: string) => {
+    // If not a secret, we set it in localstorage as well
+    if (!this.#secretSet.has(key) && !this.#allSecret) {
+      this.#localClient?.removeItem(key)
+    }
 
-          const newByteInUse = byteInUse + newValueByteSize - oldValueByteSize
-
-          // if used 80% of quota, show warning
-          const usedPercentage = newByteInUse / quota
-          if (usedPercentage > 0.8) {
-            warning = `Storage quota is almost full. ${newByteInUse}/${quota}, ${
-              usedPercentage * 100
-            }%`
-          }
-
-          if (usedPercentage > 1.0) {
-            reject(new Error(`ABORTED - New value would exceed storage quota.`))
-            return
-          }
-        }
-
-        this.#client.set({ [key]: value }).then(() => resolve(warning))
-        return
-      }
-
-      resolve(undefined)
-    })
-
-  remove = (key: string) =>
-    new Promise<void>((resolve) => {
-      // If not a secret, we set it in localstorage as well
-      if (!this.#secretSet.has(key) && !this.#allSecret) {
-        this.#localClient?.removeItem(key)
-      }
-
-      if (this.hasExtensionAPI) {
-        this.#client.remove(key).then(resolve)
-        return
-      }
-
-      resolve(undefined)
-    })
+    if (this.hasExtensionAPI) {
+      await this.#client.remove(key)
+    }
+  }
 
   watch = (callbackMap: StorageCallbackMap): boolean => {
     if (!this.isWatchingSupported()) {
@@ -270,9 +224,7 @@ export class Storage {
       })
   }
 
-  unwatchAll = () => {
-    this.#removeAllListener()
-  }
+  unwatchAll = () => this.#removeAllListener()
 
   #removeAllListener() {
     this.#chromeStorageCommsMap.forEach(({ listener }) =>
@@ -298,16 +250,3 @@ export class Storage {
 export type StorageOptions = ConstructorParameters<typeof Storage>[0]
 
 export * from "./hook"
-
-// https://stackoverflow.com/a/23329386/3151192
-function byteLengthCharCode(str: string) {
-  // returns the byte length of an utf8 string
-  let s = str.length
-  for (var i = str.length - 1; i >= 0; i--) {
-    const code = str.charCodeAt(i)
-    if (code > 0x7f && code <= 0x7ff) s++
-    else if (code > 0x7ff && code <= 0xffff) s += 2
-    if (code >= 0xdc00 && code <= 0xdfff) i-- //trail surrogate
-  }
-  return s
-}

@@ -53,12 +53,13 @@ const createStorageMock = ({ getTriggers = false } = {}) => {
 }
 
 describe("react hook", () => {
-  test("stores basic text data ", async () => {
+  test.only("stores basic text data ", async () => {
     const key = "test"
 
     const value = "hello world"
 
     const { result, unmount } = renderHook(() => useStorage(key))
+
     await act(async () => {
       await result.current[1](value)
     })
