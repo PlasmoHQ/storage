@@ -7,6 +7,8 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { Storage, StorageAreaName, StorageCallbackMap } from "./index"
 
+type Setter<T> = ((v?: T) => T) | T
+
 /**
  * https://docs.plasmo.com/framework-api/storage
  * @param rawKey
@@ -21,7 +23,7 @@ export const useStorage = <T = any>(
         area?: StorageAreaName
         isSecret?: boolean
       },
-  onInit?: ((v?: T) => T) | T
+  onInit?: Setter<T>
 ) => {
   const isStringKey = typeof rawKey === "string"
 
@@ -78,13 +80,16 @@ export const useStorage = <T = any>(
 
   // Store the value into chrome storage, then set its render state
   const persistValue = useCallback(
-    async (newValue: T) => {
+    async (setter: Setter<T>) => {
+      const newValue = setter instanceof Function ? setter(renderValue) : setter
+
       await setStoreValue(newValue)
+
       if (isMounted.current) {
         setRenderValue(newValue)
       }
     },
-    [setStoreValue]
+    [renderValue, setStoreValue]
   )
 
   const remove = useCallback(() => {
