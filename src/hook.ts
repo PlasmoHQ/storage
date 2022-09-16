@@ -37,7 +37,7 @@ export const useStorage = <T = any>(
   const storageRef = useRef(
     new Storage({
       area: isStringKey ? "sync" : rawKey.area,
-      secretKeyList: !isStringKey && rawKey.isSecret ? [key] : []
+      allSecret: !isStringKey && rawKey.isSecret
     })
   )
 
@@ -61,7 +61,6 @@ export const useStorage = <T = any>(
         }
         return
       }
-
       setRenderValue(v !== undefined ? v : onInit)
     })
 
@@ -79,10 +78,12 @@ export const useStorage = <T = any>(
 
   // Store the value into chrome storage, then set its render state
   const persistValue = useCallback(
-    (newValue: T) =>
-      setStoreValue(newValue).then(
-        () => isMounted.current && setRenderValue(newValue)
-      ),
+    async (newValue: T) => {
+      await setStoreValue(newValue)
+      if (isMounted.current) {
+        setRenderValue(newValue)
+      }
+    },
     [setStoreValue]
   )
 
