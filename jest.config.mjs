@@ -5,7 +5,6 @@
 const config = {
   clearMocks: true,
   testEnvironment: "jsdom",
-  moduleFileExtensions: ["js", "ts"],
   extensionsToTreatAsEsm: [".ts"],
   globals: {
     chrome: {
@@ -15,12 +14,18 @@ const config = {
     }
   },
   transform: {
-    "^.+.ts?$": ["ts-jest", { isolatedModules: true, useESM: true }]
+    "^.+.ts?$": [
+      "ts-jest",
+      {
+        useESM: true,
+        isolatedModules: true
+      }
+    ]
   },
   testMatch: ["**/*.test.ts"],
   verbose: true,
   moduleNameMapper: {
-    "^~(.*)$": "<rootDir>/dist/$1",
+    "^~(.*)$": "<rootDir>/src/$1",
     "^(\\.{1,2}/.*)\\.js$": "$1"
   }
 }

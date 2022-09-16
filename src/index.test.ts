@@ -59,6 +59,7 @@ describe("react hook", () => {
     const value = "hello world"
 
     const { result, unmount } = renderHook(() => useStorage(key))
+
     await act(async () => {
       await result.current[1](value)
     })

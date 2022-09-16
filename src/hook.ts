@@ -13,7 +13,7 @@ import { Storage, StorageAreaName, StorageCallbackMap } from "./index"
  * @param onInit  If it is a function, the returned value will be rendered and persisted. If it is a static value, it will only be rendered, not persisted
  * @returns
  */
-export const useStorage = <T = any>(
+export const useStorage = <T extends any, Setter extends ((v?: T) => T) | T>(
   rawKey:
     | string
     | {
@@ -21,7 +21,7 @@ export const useStorage = <T = any>(
         area?: StorageAreaName
         isSecret?: boolean
       },
-  onInit?: ((v?: T) => T) | T
+  onInit?: Setter
 ) => {
   const isStringKey = typeof rawKey === "string"
 
@@ -37,7 +37,7 @@ export const useStorage = <T = any>(
   const storageRef = useRef(
     new Storage({
       area: isStringKey ? "sync" : rawKey.area,
-      secretKeyList: !isStringKey && rawKey.isSecret ? [key] : []
+      allSecret: !isStringKey && rawKey.isSecret
     })
   )
 
@@ -61,7 +61,6 @@ export const useStorage = <T = any>(
         }
         return
       }
-
       setRenderValue(v !== undefined ? v : onInit)
     })
 
@@ -79,19 +78,17 @@ export const useStorage = <T = any>(
 
   // Store the value into chrome storage, then set its render state
   const persistValue = useCallback(
-    async (newValue: T | ((oldValue?: T) => T | Promise<T>)) => {
-      if (typeof newValue === "function") {
-        // @ts-expect-error | This will flag it as
-        // an error as the compiler doesn't know
-        // the type of "T"
-        newValue = await newValue(renderValue)
+    async (setter: Setter) => {
+      const newValue =
+        typeof setter === "function" ? setter(renderValue) : setter
+
+      await setStoreValue(newValue)
+
+      if (isMounted.current) {
+        setRenderValue(newValue)
       }
-
-      await setStoreValue(newValue as T)
-
-      return isMounted.current && setRenderValue(newValue as T)
     },
-    [setStoreValue]
+    [renderValue, setStoreValue]
   )
 
   const remove = useCallback(() => {
