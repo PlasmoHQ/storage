@@ -1,11 +1,10 @@
+import { Storage, StorageAreaName, StorageCallbackMap } from "./index"
 /**
  * Copyright (c) 2022 Plasmo Corp. <foss@plasmo.com> (https://www.plasmo.com) and contributors
  * Licensed under the MIT license.
  * This module share storage between chrome storage and local storage.
  */
 import { useCallback, useEffect, useRef, useState } from "react"
-
-import { Storage, StorageAreaName, StorageCallbackMap } from "./index"
 
 type Setter<T> = ((v?: T) => T) | T
 
@@ -22,6 +21,7 @@ export const useStorage = <T = any>(
         key: string
         area?: StorageAreaName
         isSecret?: boolean
+        isUnLimitStorage?: boolean
       },
   onInit?: Setter<T>
 ) => {
@@ -39,7 +39,8 @@ export const useStorage = <T = any>(
   const storageRef = useRef(
     new Storage({
       area: isStringKey ? "sync" : rawKey.area,
-      allSecret: !isStringKey && rawKey.isSecret
+      allSecret: !isStringKey && rawKey.isSecret,
+      isUnLimitStorage: isStringKey ? false : !!rawKey.isUnLimitStorage
     })
   )
 
