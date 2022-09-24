@@ -52,7 +52,7 @@ export class Storage {
   constructor({
     area = "sync" as StorageAreaName,
     secretKeyList = [] as string[],
-    allSecret = false
+    allSecret = false,
     isUnLimitStorage = false
   } = {}) {
     this.updateSecret(secretKeyList)
