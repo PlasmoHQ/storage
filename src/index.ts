@@ -4,6 +4,7 @@
  * This module share storage between chrome storage and local storage.
  */
 import browser from "webextension-polyfill"
+
 import { getQuotaWarning } from "~get-quota-warning"
 
 export type StorageWatchEventListener = Parameters<
@@ -33,7 +34,7 @@ export class Storage {
   #localClient = hasWindow ? window.localStorage : null
 
   #area: StorageAreaName
-  #isUnLimitStorage: boolean
+  #skipQuotaCheck = false
 
   // TODO: Make another map for local storage
   #chromeStorageCommsMap: Map<
@@ -45,7 +46,7 @@ export class Storage {
   > = new Map()
 
   #secretSet: Set<string>
-  #allSecret: boolean = false
+  #allSecret = false
 
   hasExtensionAPI = false
 
@@ -53,11 +54,11 @@ export class Storage {
     area = "sync" as StorageAreaName,
     secretKeyList = [] as string[],
     allSecret = false,
-    isUnLimitStorage = false
+    unlimited = false
   } = {}) {
     this.updateSecret(secretKeyList)
     this.#area = area
-    this.#isUnLimitStorage = isUnLimitStorage
+    this.#skipQuotaCheck = unlimited
     this.#allSecret = allSecret
 
     if (browser.storage) {
@@ -122,11 +123,10 @@ export class Storage {
       return undefined
     }
 
-    var warning = ''
-    // when user get unlimitstorage permission, skip used space check
-    if(this.#isUnLimitStorage === false) {
-      await getQuotaWarning(this.#area, this.#storage, key, value)
-    }
+    // when user has unlimitedStorage permission, skip used space check
+    const warning = this.#skipQuotaCheck
+      ? ""
+      : await getQuotaWarning(this.#area, this.#storage, key, value)
 
     await this.#client.set({ [key]: value })
 

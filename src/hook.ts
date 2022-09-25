@@ -4,6 +4,7 @@
  * This module share storage between chrome storage and local storage.
  */
 import { useCallback, useEffect, useRef, useState } from "react"
+
 import { Storage, StorageAreaName, StorageCallbackMap } from "./index"
 
 type Setter<T> = ((v?: T) => T) | T
@@ -21,7 +22,7 @@ export const useStorage = <T = any>(
         key: string
         area?: StorageAreaName
         isSecret?: boolean
-        isUnLimitStorage?: boolean
+        unlimited?: boolean
       },
   onInit?: Setter<T>
 ) => {
@@ -40,7 +41,7 @@ export const useStorage = <T = any>(
     new Storage({
       area: isStringKey ? "sync" : rawKey.area,
       allSecret: !isStringKey && rawKey.isSecret,
-      isUnLimitStorage: isStringKey ? false : !!rawKey.isUnLimitStorage
+      unlimited: !isStringKey && rawKey.unlimited
     })
   )
 
