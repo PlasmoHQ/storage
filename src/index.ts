@@ -250,5 +250,3 @@ export class Storage {
 }
 
 export type StorageOptions = ConstructorParameters<typeof Storage>[0]
-
-export * from "./hook"
