@@ -22,6 +22,7 @@ export const useStorage = <T = any>(
         key: string
         area?: StorageAreaName
         isSecret?: boolean
+        unlimited?: boolean
       },
   onInit?: Setter<T>
 ) => {
@@ -39,7 +40,8 @@ export const useStorage = <T = any>(
   const storageRef = useRef(
     new Storage({
       area: isStringKey ? "sync" : rawKey.area,
-      allSecret: !isStringKey && rawKey.isSecret
+      allSecret: !isStringKey && rawKey.isSecret,
+      unlimited: !isStringKey && rawKey.unlimited
     })
   )
 

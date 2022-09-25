@@ -34,6 +34,7 @@ export class Storage {
   #localClient = hasWindow ? window.localStorage : null
 
   #area: StorageAreaName
+  #skipQuotaCheck = false
 
   // TODO: Make another map for local storage
   #chromeStorageCommsMap: Map<
@@ -45,17 +46,19 @@ export class Storage {
   > = new Map()
 
   #secretSet: Set<string>
-  #allSecret: boolean = false
+  #allSecret = false
 
   hasExtensionAPI = false
 
   constructor({
     area = "sync" as StorageAreaName,
     secretKeyList = [] as string[],
-    allSecret = false
+    allSecret = false,
+    unlimited = false
   } = {}) {
     this.updateSecret(secretKeyList)
     this.#area = area
+    this.#skipQuotaCheck = unlimited
     this.#allSecret = allSecret
 
     if (browser.storage) {
@@ -120,7 +123,10 @@ export class Storage {
       return undefined
     }
 
-    const warning = await getQuotaWarning(this.#area, this.#storage, key, value)
+    // when user has unlimitedStorage permission, skip used space check
+    const warning = this.#skipQuotaCheck
+      ? ""
+      : await getQuotaWarning(this.#area, this.#storage, key, value)
 
     await this.#client.set({ [key]: value })
 
