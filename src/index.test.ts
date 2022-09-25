@@ -13,7 +13,8 @@ const browserMock = {} as any
 
 jest.mock("webextension-polyfill", () => browserMock)
 
-const { Storage, useStorage } = await import("~index")
+const { Storage } = await import("~index")
+const { useStorage } = await import("~hook")
 
 beforeEach(() => {
   localStorage.clear()
