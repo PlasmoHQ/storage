@@ -1,4 +1,4 @@
-import type { InternalStorage, StorageArea, StorageAreaName } from "~index"
+import type { InternalStorage, StorageArea, StorageAreaName } from "./index"
 
 // https://stackoverflow.com/a/23329386/3151192
 function byteLengthCharCode(str: string) {

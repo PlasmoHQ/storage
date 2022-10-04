@@ -5,7 +5,7 @@
  */
 import browser from "webextension-polyfill"
 
-import { getQuotaWarning } from "~get-quota-warning"
+import { getQuotaWarning } from "./get-quota-warning"
 
 export type StorageWatchEventListener = Parameters<
   typeof chrome.storage.onChanged.addListener
