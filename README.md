@@ -65,4 +65,4 @@ During development, you may use any ID. If you have published your extension, yo
 
 ## License
 
-[MIT](./license) 🖖 [Plasmo Corp.](https://plasmo.com)
+[MIT](./LICENSE) 🖖 [Plasmo Corp.](https://plasmo.com)
