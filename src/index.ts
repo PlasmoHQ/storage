@@ -26,7 +26,7 @@ export type InternalStorage = browser.Storage.Static
 
 const hasWindow = typeof window !== "undefined"
 /**
- * https://docs.plasmo.com/framework-api/storage
+ * https://docs.plasmo.com/framework/storage
  */
 export class Storage {
   #storage: InternalStorage
