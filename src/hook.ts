@@ -32,6 +32,7 @@ export const useStorage = <T = any>(
 
   // Render state
   const [renderValue, setRenderValue] = useState<T>(onInit)
+  const [isHydrated, setIsHydrated] = useState(false)
 
   // Use to ensure we don't set render state after unmounted
   const isMounted = useRef(false)
@@ -57,15 +58,16 @@ export const useStorage = <T = any>(
 
     storageRef.current.watch(watchConfig)
 
-    storageRef.current.get<T>(key)?.then(async (v) => {
+    storageRef.current.get<T>(key)?.then((v) => {
       if (onInit instanceof Function) {
-        const initValue = await onInit?.(v)
+        const initValue = onInit?.(v)
         if (initValue !== undefined) {
           persistValue(initValue)
         }
-        return
+      } else {
+        setRenderValue(v !== undefined ? v : onInit)
       }
-      setRenderValue(v !== undefined ? v : onInit)
+      setIsHydrated(true)
     })
 
     return () => {
@@ -103,6 +105,7 @@ export const useStorage = <T = any>(
     renderValue,
     persistValue,
     {
+      isHydrated,
       setRenderValue,
       setStoreValue,
       remove
