@@ -133,6 +133,10 @@ export class Storage {
     return warning
   }
 
+  clear = async () => {
+    await this.#client.clear()
+  }
+
   remove = async (key: string) => {
     // If not a secret, we set it in localstorage as well
     if (!this.#secretSet.has(key) && !this.#allSecret) {

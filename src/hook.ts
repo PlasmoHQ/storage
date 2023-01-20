@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { Storage, StorageAreaName, StorageCallbackMap } from "./index"
 
-type Setter<T> = ((v?: T) => T) | T
+type Setter<T> = ((v?: T, isHydrating?: boolean) => T) | T
 
 /**
  * https://docs.plasmo.com/framework/storage
@@ -32,7 +32,6 @@ export const useStorage = <T = any>(
 
   // Render state
   const [renderValue, setRenderValue] = useState<T>(onInit)
-  const [isHydrated, setIsHydrated] = useState(false)
 
   // Use to ensure we don't set render state after unmounted
   const isMounted = useRef(false)
@@ -60,14 +59,13 @@ export const useStorage = <T = any>(
 
     storageRef.current.get<T>(key)?.then((v) => {
       if (onInit instanceof Function) {
-        const initValue = onInit?.(v)
+        const initValue = onInit?.(v, true)
         if (initValue !== undefined) {
           persistValue(initValue)
         }
       } else {
         setRenderValue(v !== undefined ? v : onInit)
       }
-      setIsHydrated(true)
     })
 
     return () => {
@@ -105,7 +103,6 @@ export const useStorage = <T = any>(
     renderValue,
     persistValue,
     {
-      isHydrated,
       setRenderValue,
       setStoreValue,
       remove
