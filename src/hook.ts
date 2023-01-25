@@ -9,23 +9,22 @@ import { Storage, StorageAreaName, StorageCallbackMap } from "./index"
 
 type Setter<T> = ((v?: T, isHydrating?: boolean) => T) | T
 
+export type RawKey =
+  | string
+  | {
+      key: string
+      area?: StorageAreaName
+      isSecret?: boolean
+      unlimited?: boolean
+    }
+
 /**
  * https://docs.plasmo.com/framework/storage
  * @param rawKey
  * @param onInit  If it is a function, the returned value will be rendered and persisted. If it is a static value, it will only be rendered, not persisted
  * @returns
  */
-export const useStorage = <T = any>(
-  rawKey:
-    | string
-    | {
-        key: string
-        area?: StorageAreaName
-        isSecret?: boolean
-        unlimited?: boolean
-      },
-  onInit?: Setter<T>
-) => {
+export const useStorage = <T = any>(rawKey: RawKey, onInit?: Setter<T>) => {
   const isStringKey = typeof rawKey === "string"
 
   const key = isStringKey ? rawKey : rawKey.key

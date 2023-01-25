@@ -1,6 +1,6 @@
 {
   "name": "@plasmohq/storage",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "description": "Safely store data and share them across your extension",
   "type": "module",
   "module": "./src/index.ts",
@@ -9,6 +9,11 @@
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
+      "./inspector": {
+        "import": "./dist/inspector.js",
+        "require": "./dist/inspector.cjs",
+        "types": "./dist/inspector.d.ts"
+      },
       "./hook": {
         "import": "./dist/hook.js",
         "require": "./dist/hook.cjs",
@@ -22,6 +27,11 @@
     }
   },
   "exports": {
+    "./inspector": {
+      "import": "./src/inspector.ts",
+      "require": "./src/inspector.ts",
+      "types": "./src/inspector.ts"
+    },
     "./hook": {
       "import": "./src/hook.ts",
       "require": "./src/hook.ts",
@@ -37,6 +47,9 @@
     "*": {
       "hook": [
         "./dist/hook.d.ts"
+      ],
+      "inspector": [
+        "./dist/inspector.d.ts"
       ]
     }
   },
@@ -46,7 +59,8 @@
   "tsup": {
     "entry": [
       "src/index.ts",
-      "src/hook.ts"
+      "src/hook.ts",
+      "src/inspector.ts"
     ],
     "format": [
       "esm",

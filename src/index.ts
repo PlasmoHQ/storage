@@ -29,26 +29,40 @@ const hasWindow = typeof window !== "undefined"
  * https://docs.plasmo.com/framework/storage
  */
 export class Storage {
-  #storage: InternalStorage
-  #client: StorageArea
-  #localClient = hasWindow ? window.localStorage : null
+  #extStorageEngine: InternalStorage
+
+  #extStorage: StorageArea
+  #webLocalStorage = hasWindow ? window.localStorage : null
 
   #area: StorageAreaName
+  get area() {
+    return this.#area
+  }
+
+  get hasWindow() {
+    return hasWindow
+  }
+
   #skipQuotaCheck = false
 
   // TODO: Make another map for local storage
-  #chromeStorageCommsMap: Map<
+  #chromeStorageCommsMap = new Map<
     string,
     {
       callbackSet: Set<StorageWatchCallback>
       listener: StorageWatchEventListener
     }
-  > = new Map()
+  >()
 
   #secretSet: Set<string>
   #allSecret = false
 
-  hasExtensionAPI = false
+  #hasExtensionAPI = false
+  get hasExtensionAPI() {
+    return this.#hasExtensionAPI
+  }
+
+  isWatchingSupported = () => this.hasExtensionAPI
 
   constructor({
     area = "sync" as StorageAreaName,
@@ -62,9 +76,9 @@ export class Storage {
     this.#allSecret = allSecret
 
     if (browser.storage) {
-      this.#storage = browser.storage
-      this.#client = this.#storage[this.#area]
-      this.hasExtensionAPI = true
+      this.#extStorageEngine = browser.storage
+      this.#extStorage = this.#extStorageEngine[this.#area]
+      this.#hasExtensionAPI = true
     }
   }
 
@@ -82,11 +96,11 @@ export class Storage {
       return false
     }
 
-    const previousValue = this.#localClient?.getItem(key)
-    const dataSet = await this.#client.get(key)
+    const previousValue = this.#webLocalStorage?.getItem(key)
+    const dataSet = await this.#extStorage.get(key)
     const value = dataSet[key] as string
 
-    this.#localClient?.setItem(key, value)
+    this.#webLocalStorage?.setItem(key, value)
 
     return value !== previousValue
   }
@@ -96,15 +110,17 @@ export class Storage {
    */
   get = async <T = string>(key: string) => {
     if (this.hasExtensionAPI) {
-      const dataMap = await this.#client.get(key)
+      const dataMap = await this.#extStorage.get(key)
       return this.#parseValue(dataMap[key]) as T
     } else {
       // If chrome storage is not available, use localStorage
       // TODO: TRY asking for storage permission and retry?
-      const storedValue = this.#localClient?.getItem(key)
+      const storedValue = this.#webLocalStorage?.getItem(key)
       return this.#parseValue(storedValue) as T
     }
   }
+
+  getAll = () => this.#extStorage?.get(null)
 
   /**
    * Set the value. If it is a secret, it will only be set in extension storage.
@@ -116,7 +132,7 @@ export class Storage {
 
     // If not a secret, we set it in localstorage as well
     if (!this.#secretSet.has(key) && !this.#allSecret) {
-      this.#localClient?.setItem(key, value)
+      this.#webLocalStorage?.setItem(key, value)
     }
 
     if (!this.hasExtensionAPI) {
@@ -126,25 +142,28 @@ export class Storage {
     // when user has unlimitedStorage permission, skip used space check
     const warning = this.#skipQuotaCheck
       ? ""
-      : await getQuotaWarning(this.#area, this.#storage, key, value)
+      : await getQuotaWarning(this.area, this.#extStorageEngine, key, value)
 
-    await this.#client.set({ [key]: value })
+    await this.#extStorage.set({ [key]: value })
 
     return warning
   }
 
-  clear = async () => {
-    await this.#client.clear()
+  clear = async (includeLocalStorage = false) => {
+    if (includeLocalStorage) {
+      this.#webLocalStorage?.clear()
+    }
+    await this.#extStorage.clear()
   }
 
   remove = async (key: string) => {
     // If not a secret, we set it in localstorage as well
     if (!this.#secretSet.has(key) && !this.#allSecret) {
-      this.#localClient?.removeItem(key)
+      this.#webLocalStorage?.removeItem(key)
     }
 
     if (this.hasExtensionAPI) {
-      await this.#client.remove(key)
+      await this.#extStorage.remove(key)
     }
   }
 
@@ -157,8 +176,6 @@ export class Storage {
 
     return true
   }
-
-  isWatchingSupported = () => this.hasExtensionAPI
 
   #addListener = (callbackMap: StorageCallbackMap) => {
     Object.entries(callbackMap).forEach(([key, callback]) => {
@@ -205,7 +222,7 @@ export class Storage {
         }
       }
 
-      this.#storage.onChanged.addListener(chromeStorageListener)
+      this.#extStorageEngine.onChanged.addListener(chromeStorageListener)
 
       this.#chromeStorageCommsMap.set(key, {
         callbackSet,
@@ -231,7 +248,7 @@ export class Storage {
 
         if (storageComms.callbackSet.size === 0) {
           this.#chromeStorageCommsMap.delete(key)
-          this.#storage.onChanged.removeListener(storageComms.listener)
+          this.#extStorageEngine.onChanged.removeListener(storageComms.listener)
         }
       })
   }
@@ -240,7 +257,7 @@ export class Storage {
 
   #removeAllListener() {
     this.#chromeStorageCommsMap.forEach(({ listener }) =>
-      this.#storage.onChanged.removeListener(listener)
+      this.#extStorageEngine.onChanged.removeListener(listener)
     )
 
     this.#chromeStorageCommsMap.clear()
