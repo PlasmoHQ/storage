@@ -1,4 +1,4 @@
-import type { InternalStorage, StorageArea, StorageAreaName } from "./index"
+import type { BaseStorage } from "./index"
 
 // https://stackoverflow.com/a/23329386/3151192
 function byteLengthCharCode(str: string) {
@@ -14,21 +14,20 @@ function byteLengthCharCode(str: string) {
 }
 
 export const getQuotaWarning = async (
-  area: StorageAreaName,
-  storage: InternalStorage,
+  storage: BaseStorage,
   key: string,
   value: string
 ) => {
   let warning = ""
 
-  checkQuota: if (area !== "managed") {
+  checkQuota: if (storage.area !== "managed") {
     // Explicit access to the un-polyfilled version is used here
     // as the polyfill might override the non-existent function
-    if (!chrome?.storage?.[area].getBytesInUse) {
+    if (!chrome?.storage?.[storage.area].getBytesInUse) {
       break checkQuota
     }
 
-    const client = storage[area] as StorageArea
+    const client = storage.extClient
 
     // Firefox doesn't support quota bytes so the defined value at
     // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/storage/sync#storage_quotas_for_sync_data

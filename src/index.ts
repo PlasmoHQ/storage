@@ -24,28 +24,34 @@ export type StorageArea = browser.Storage.StorageArea &
 
 export type InternalStorage = browser.Storage.Static
 
-const hasWindow = typeof window !== "undefined"
-/**
- * https://docs.plasmo.com/framework/storage
- */
-export class Storage {
+const hasWebApi = typeof window !== "undefined"
+
+export abstract class BaseStorage {
   #extStorageEngine: InternalStorage
 
-  #extStorage: StorageArea
-  #webLocalStorage = hasWindow ? window.localStorage : null
+  // The main storage engine
+  #extClient: StorageArea
+  get extClient() {
+    return this.#extClient
+  }
+
+  // The backup client on the web, for now use localStorage
+  #webClient = hasWebApi ? window.localStorage : null
+  get webClient() {
+    return this.#webClient
+  }
 
   #area: StorageAreaName
   get area() {
     return this.#area
   }
 
-  get hasWindow() {
-    return hasWindow
+  get hasWebAPI() {
+    return hasWebApi
   }
 
-  #skipQuotaCheck = false
+  #shouldCheckQuota = false
 
-  // TODO: Make another map for local storage
   #chromeStorageCommsMap = new Map<
     string,
     {
@@ -54,116 +60,133 @@ export class Storage {
     }
   >()
 
-  #secretSet: Set<string>
-  #allSecret = false
-
-  #hasExtensionAPI = false
-  get hasExtensionAPI() {
-    return this.#hasExtensionAPI
+  #publicKeySet: Set<string>
+  get publicKeySet() {
+    return this.#publicKeySet
   }
 
-  isWatchingSupported = () => this.hasExtensionAPI
+  isPublic = (key: string) => this.allPublic || this.publicKeySet.has(key)
+
+  #allPublic = false
+  get allPublic() {
+    return this.#allPublic
+  }
+
+  #hasExtensionApi = false
+  get hasExtensionApi() {
+    return this.#hasExtensionApi
+  }
+
+  isWatchingSupported = () => this.hasExtensionApi
 
   constructor({
     area = "sync" as StorageAreaName,
-    secretKeyList = [] as string[],
-    allSecret = false,
-    unlimited = false
+    unlimited = false,
+    allPublic = false,
+    publicKeyList = [] as string[]
   } = {}) {
-    this.updateSecret(secretKeyList)
+    this.setPublicKeySet(publicKeyList)
     this.#area = area
-    this.#skipQuotaCheck = unlimited
-    this.#allSecret = allSecret
+    this.#shouldCheckQuota = unlimited
+    this.#allPublic = allPublic
 
     if (browser.storage) {
       this.#extStorageEngine = browser.storage
-      this.#extStorage = this.#extStorageEngine[this.#area]
-      this.#hasExtensionAPI = true
+      this.#extClient = this.#extStorageEngine[this.area]
+      this.#hasExtensionApi = true
     }
   }
 
-  updateSecret(secretKeyList: string[]) {
-    this.#secretSet = new Set(secretKeyList)
+  setPublicKeySet(keyList: string[]) {
+    this.#publicKeySet = new Set(keyList)
   }
+
+  getAll = () => this.#extClient?.get()
 
   /**
    * Sync the key/value between chrome storage and local storage.
-   * @param key
+   * @param key if undefined, sync all public keys.
    * @returns false if the value is unchanged or it is a secret key.
    */
-  sync = async (key: string) => {
-    if (this.#secretSet.has(key) || this.#allSecret || !this.hasExtensionAPI) {
+  syncPublic = async (key?: string) => {
+    const syncAll = key === undefined
+    if (
+      (!syncAll && !this.publicKeySet.has(key)) ||
+      !this.allPublic ||
+      !this.hasExtensionApi
+    ) {
       return false
     }
 
-    const previousValue = this.#webLocalStorage?.getItem(key)
-    const dataSet = await this.#extStorage.get(key)
-    const value = dataSet[key] as string
+    const dataMap = this.allPublic
+      ? await this.getAll()
+      : await this.#extClient.get(syncAll ? [...this.publicKeySet] : [key])
 
-    this.#webLocalStorage?.setItem(key, value)
+    let changed = false
 
-    return value !== previousValue
-  }
-
-  /**
-   * Get value from either local storage or chrome storage.
-   */
-  get = async <T = string>(key: string) => {
-    if (this.hasExtensionAPI) {
-      const dataMap = await this.#extStorage.get(key)
-      return this.#parseValue(dataMap[key]) as T
-    } else {
-      // If chrome storage is not available, use localStorage
-      // TODO: TRY asking for storage permission and retry?
-      const storedValue = this.#webLocalStorage?.getItem(key)
-      return this.#parseValue(storedValue) as T
+    for (const pKey in dataMap) {
+      const value = dataMap[pKey] as string
+      const previousValue = this.#webClient?.getItem(pKey)
+      this.#webClient?.setItem(pKey, value)
+      changed ||= value !== previousValue
     }
+
+    return changed
   }
 
-  getAll = () => this.#extStorage?.get(null)
+  protected rawGet = async (key: string): Promise<string> => {
+    if (this.hasExtensionApi) {
+      const dataMap = await this.#extClient.get(key)
+      return dataMap[key]
+    }
 
-  /**
-   * Set the value. If it is a secret, it will only be set in extension storage.
-   * Returns a warning if storage capacity is almost full.
-   * Throws error if the new item will make storage full
-   */
-  set = async (key: string, rawValue: any) => {
-    const value = JSON.stringify(rawValue)
+    // If chrome storage is not available, use localStorage
+    // TODO: TRY asking for storage permission and retry?
+    if (this.hasWebAPI && this.isPublic(key)) {
+      return this.#webClient?.getItem(key)
+    }
 
+    return null
+  }
+
+  protected rawSet = async (key: string, value: string) => {
     // If not a secret, we set it in localstorage as well
-    if (!this.#secretSet.has(key) && !this.#allSecret) {
-      this.#webLocalStorage?.setItem(key, value)
+    if (this.hasWebAPI && this.isPublic(key)) {
+      this.#webClient?.setItem(key, value)
     }
 
-    if (!this.hasExtensionAPI) {
-      return undefined
+    if (this.hasExtensionApi) {
+      // when user has unlimitedStorage permission, skip used space check
+      let warning = this.#shouldCheckQuota
+        ? await getQuotaWarning(this, key, value)
+        : ""
+
+      await this.#extClient.set({ [key]: value })
+
+      return warning
     }
 
-    // when user has unlimitedStorage permission, skip used space check
-    const warning = this.#skipQuotaCheck
-      ? ""
-      : await getQuotaWarning(this.area, this.#extStorageEngine, key, value)
-
-    await this.#extStorage.set({ [key]: value })
-
-    return warning
+    return null
   }
 
+  /**
+   * @param includeLocalStorage Also cleanup Web API localStorage, NOT chrome.storage.local
+   */
   clear = async (includeLocalStorage = false) => {
-    if (includeLocalStorage) {
-      this.#webLocalStorage?.clear()
+    if (includeLocalStorage && this.hasWebAPI) {
+      this.#webClient?.clear()
     }
-    await this.#extStorage.clear()
+
+    await this.#extClient.clear()
   }
 
   remove = async (key: string) => {
-    // If not a secret, we set it in localstorage as well
-    if (!this.#secretSet.has(key) && !this.#allSecret) {
-      this.#webLocalStorage?.removeItem(key)
+    if (this.hasWebAPI && this.isPublic(key)) {
+      this.#webClient?.removeItem(key)
     }
 
-    if (this.hasExtensionAPI) {
-      await this.#extStorage.remove(key)
+    if (this.hasExtensionApi) {
+      await this.#extClient.remove(key)
     }
   }
 
@@ -192,7 +215,7 @@ export class Storage {
         changes,
         areaName
       ) => {
-        if (areaName !== this.#area) {
+        if (areaName !== this.area) {
           return
         }
 
@@ -207,19 +230,19 @@ export class Storage {
           return
         }
 
-        for (const key of relevantKeyList) {
-          const storageComms = this.#chromeStorageCommsMap.get(key)
+        Promise.all(
+          relevantKeyList.map(async (key) => {
+            const storageComms = this.#chromeStorageCommsMap.get(key)
+            const [newValue, oldValue] = await Promise.all([
+              this.parseValue(changes[key].newValue),
+              this.parseValue(changes[key].oldValue)
+            ])
 
-          storageComms?.callbackSet?.forEach((callback) => {
-            callback(
-              {
-                newValue: this.#parseValue(changes[key].newValue),
-                oldValue: this.#parseValue(changes[key].oldValue)
-              },
-              areaName
+            storageComms?.callbackSet?.forEach((callback) =>
+              callback({ newValue, oldValue }, areaName)
             )
           })
-        }
+        )
       }
 
       this.#extStorageEngine.onChanged.addListener(chromeStorageListener)
@@ -263,7 +286,41 @@ export class Storage {
     this.#chromeStorageCommsMap.clear()
   }
 
-  #parseValue(rawValue: any) {
+  /**
+   * Get value from either local storage or chrome storage.
+   */
+  abstract get: <T = string>(key: string) => Promise<T>
+
+  /**
+   * Set the value. If it is a secret, it will only be set in extension storage.
+   * Returns a warning if storage capacity is almost full.
+   * Throws error if the new item will make storage full
+   */
+  abstract set: (key: string, rawValue: any) => Promise<string>
+
+  /**
+   * Parse the value into its original form from storage raw value.
+   */
+  protected abstract parseValue: (rawValue: any) => Promise<any>
+}
+
+export type StorageOptions = ConstructorParameters<typeof BaseStorage>[0]
+
+/**
+ * https://docs.plasmo.com/framework/storage
+ */
+export class Storage extends BaseStorage {
+  get = async <T = string>(key: string) => {
+    const rawValue = await this.rawGet(key)
+    return this.parseValue(rawValue) as T
+  }
+
+  set = async (key: string, rawValue: any) => {
+    const value = JSON.stringify(rawValue)
+    return this.rawSet(key, value)
+  }
+
+  protected parseValue = async (rawValue: any) => {
     try {
       if (rawValue !== undefined) {
         return JSON.parse(rawValue)
@@ -275,5 +332,3 @@ export class Storage {
     return undefined
   }
 }
-
-export type StorageOptions = ConstructorParameters<typeof Storage>[0]
