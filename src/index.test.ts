@@ -62,7 +62,7 @@ describe("react hook", () => {
     const { result, unmount } = renderHook(() =>
       useStorage({
         key,
-        instance: new Storage({ allPublic: true })
+        instance: new Storage({ allCopied: true })
       })
     )
 
@@ -87,7 +87,7 @@ describe("react hook", () => {
       useStorage(
         {
           key,
-          instance: new Storage({ allPublic: true })
+          instance: new Storage({ allCopied: true })
         },
         value
       )
