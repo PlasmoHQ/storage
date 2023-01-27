@@ -27,7 +27,7 @@ export const getQuotaWarning = async (
       break checkQuota
     }
 
-    const client = storage.extClient
+    const client = storage.primaryClient
 
     // Firefox doesn't support quota bytes so the defined value at
     // https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/storage/sync#storage_quotas_for_sync_data
