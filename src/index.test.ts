@@ -59,7 +59,12 @@ describe("react hook", () => {
 
     const value = "hello world"
 
-    const { result, unmount } = renderHook(() => useStorage(key))
+    const { result, unmount } = renderHook(() =>
+      useStorage({
+        key,
+        instance: new Storage({ allCopied: true })
+      })
+    )
 
     await act(async () => {
       await result.current[1](value)
@@ -78,7 +83,15 @@ describe("react hook", () => {
 
     const setter = (prev: string) => prev + " world"
 
-    const { result, unmount } = renderHook(() => useStorage(key, value))
+    const { result, unmount } = renderHook(() =>
+      useStorage(
+        {
+          key,
+          instance: new Storage({ allCopied: true })
+        },
+        value
+      )
+    )
 
     await act(async () => {
       await result.current[1](setter)

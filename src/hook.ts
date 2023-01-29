@@ -5,30 +5,29 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import { Storage, StorageAreaName, StorageCallbackMap } from "./index"
+import { BaseStorage, Storage, StorageCallbackMap } from "./index"
 
 type Setter<T> = ((v?: T, isHydrating?: boolean) => T) | T
 
 /**
+ * isPublic: If true, the value will be synced with web API Storage
+ */
+export type RawKey =
+  | string
+  | {
+      key: string
+      instance: BaseStorage
+    }
+
+/**
  * https://docs.plasmo.com/framework/storage
- * @param rawKey
  * @param onInit  If it is a function, the returned value will be rendered and persisted. If it is a static value, it will only be rendered, not persisted
  * @returns
  */
-export const useStorage = <T = any>(
-  rawKey:
-    | string
-    | {
-        key: string
-        area?: StorageAreaName
-        isSecret?: boolean
-        unlimited?: boolean
-      },
-  onInit?: Setter<T>
-) => {
-  const isStringKey = typeof rawKey === "string"
+export const useStorage = <T = any>(rawKey: RawKey, onInit?: Setter<T>) => {
+  const isObjectKey = typeof rawKey === "object"
 
-  const key = isStringKey ? rawKey : rawKey.key
+  const key = isObjectKey ? rawKey.key : rawKey
 
   // Render state
   const [renderValue, setRenderValue] = useState<T>(onInit)
@@ -37,13 +36,7 @@ export const useStorage = <T = any>(
   const isMounted = useRef(false)
 
   // Storage state
-  const storageRef = useRef(
-    new Storage({
-      area: isStringKey ? "sync" : rawKey.area,
-      allSecret: !isStringKey && rawKey.isSecret,
-      unlimited: !isStringKey && rawKey.unlimited
-    })
-  )
+  const storageRef = useRef(isObjectKey ? rawKey.instance : new Storage())
 
   useEffect(() => {
     isMounted.current = true

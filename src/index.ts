@@ -24,146 +24,188 @@ export type StorageArea = browser.Storage.StorageArea &
 
 export type InternalStorage = browser.Storage.Static
 
-const hasWindow = typeof window !== "undefined"
-/**
- * https://docs.plasmo.com/framework/storage
- */
-export class Storage {
-  #storage: InternalStorage
-  #client: StorageArea
-  #localClient = hasWindow ? window.localStorage : null
+const hasWebApi = typeof window !== "undefined"
+
+export abstract class BaseStorage {
+  #extStorageEngine: InternalStorage
+  #shouldCheckQuota = false
+
+  #primaryClient: StorageArea
+  get primaryClient() {
+    return this.#primaryClient
+  }
+
+  #secondaryClient
+  get secondaryClient() {
+    return this.#secondaryClient
+  }
 
   #area: StorageAreaName
-  #skipQuotaCheck = false
+  get area() {
+    return this.#area
+  }
 
-  // TODO: Make another map for local storage
-  #chromeStorageCommsMap: Map<
+  get hasWebAPI() {
+    return hasWebApi
+  }
+
+  #watchMap = new Map<
     string,
     {
       callbackSet: Set<StorageWatchCallback>
       listener: StorageWatchEventListener
     }
-  > = new Map()
+  >()
 
-  #secretSet: Set<string>
-  #allSecret = false
+  #copiedKeySet: Set<string>
+  get copiedKeySet() {
+    return this.#copiedKeySet
+  }
 
-  hasExtensionAPI = false
+  /**
+   * the key is copied to the webClient
+   */
+  isCopied = (key: string) =>
+    this.hasWebAPI && (this.allCopied || this.copiedKeySet.has(key))
+
+  #allCopied = false
+  get allCopied() {
+    return this.#allCopied
+  }
+
+  #hasExtensionApi = false
+  get hasExtensionApi() {
+    return this.#hasExtensionApi
+  }
+
+  isWatchSupported = () => this.hasExtensionApi
 
   constructor({
     area = "sync" as StorageAreaName,
-    secretKeyList = [] as string[],
-    allSecret = false,
-    unlimited = false
+    unlimited = false,
+    allCopied = false,
+    copiedKeyList = [] as string[]
   } = {}) {
-    this.updateSecret(secretKeyList)
+    this.setCopiedKeySet(copiedKeyList)
     this.#area = area
-    this.#skipQuotaCheck = unlimited
-    this.#allSecret = allSecret
+    this.#shouldCheckQuota = unlimited
+    this.#allCopied = allCopied
 
     if (browser.storage) {
-      this.#storage = browser.storage
-      this.#client = this.#storage[this.#area]
-      this.hasExtensionAPI = true
+      this.#extStorageEngine = browser.storage
+      this.#primaryClient = this.#extStorageEngine[this.area]
+      this.#hasExtensionApi = true
+    }
+
+    if (hasWebApi) {
+      this.#secondaryClient = window.localStorage
     }
   }
 
-  updateSecret(secretKeyList: string[]) {
-    this.#secretSet = new Set(secretKeyList)
+  setCopiedKeySet(keyList: string[]) {
+    this.#copiedKeySet = new Set(keyList)
   }
 
+  getAll = () => this.#primaryClient?.get()
+
   /**
-   * Sync the key/value between chrome storage and local storage.
-   * @param key
+   * Copy the key/value between extension storage and web storage.
+   * @param key if undefined, copy all keys between storages.
    * @returns false if the value is unchanged or it is a secret key.
    */
-  sync = async (key: string) => {
-    if (this.#secretSet.has(key) || this.#allSecret || !this.hasExtensionAPI) {
+  copy = async (key?: string) => {
+    const syncAll = key === undefined
+    if (
+      (!syncAll && !this.copiedKeySet.has(key)) ||
+      !this.allCopied ||
+      !this.hasExtensionApi
+    ) {
       return false
     }
 
-    const previousValue = this.#localClient?.getItem(key)
-    const dataSet = await this.#client.get(key)
-    const value = dataSet[key] as string
+    const dataMap = this.allCopied
+      ? await this.getAll()
+      : await this.#primaryClient.get(syncAll ? [...this.copiedKeySet] : [key])
 
-    this.#localClient?.setItem(key, value)
+    let changed = false
 
-    return value !== previousValue
-  }
-
-  /**
-   * Get value from either local storage or chrome storage.
-   */
-  get = async <T = string>(key: string) => {
-    if (this.hasExtensionAPI) {
-      const dataMap = await this.#client.get(key)
-      return this.#parseValue(dataMap[key]) as T
-    } else {
-      // If chrome storage is not available, use localStorage
-      // TODO: TRY asking for storage permission and retry?
-      const storedValue = this.#localClient?.getItem(key)
-      return this.#parseValue(storedValue) as T
+    for (const pKey in dataMap) {
+      const value = dataMap[pKey] as string
+      const previousValue = this.#secondaryClient?.getItem(pKey)
+      this.#secondaryClient?.setItem(pKey, value)
+      changed ||= value !== previousValue
     }
+
+    return changed
   }
 
-  /**
-   * Set the value. If it is a secret, it will only be set in extension storage.
-   * Returns a warning if storage capacity is almost full.
-   * Throws error if the new item will make storage full
-   */
-  set = async (key: string, rawValue: any) => {
-    const value = JSON.stringify(rawValue)
+  protected rawGet = async (key: string): Promise<string> => {
+    if (this.hasExtensionApi) {
+      const dataMap = await this.#primaryClient.get(key)
+      return dataMap[key]
+    }
 
+    // If chrome storage is not available, use localStorage
+    // TODO: TRY asking for storage permission and retry?
+    if (this.isCopied(key)) {
+      return this.#secondaryClient?.getItem(key)
+    }
+
+    return null
+  }
+
+  protected rawSet = async (key: string, value: string) => {
     // If not a secret, we set it in localstorage as well
-    if (!this.#secretSet.has(key) && !this.#allSecret) {
-      this.#localClient?.setItem(key, value)
+    if (this.isCopied(key)) {
+      this.#secondaryClient?.setItem(key, value)
     }
 
-    if (!this.hasExtensionAPI) {
-      return undefined
+    if (this.hasExtensionApi) {
+      // when user has unlimitedStorage permission, skip used space check
+      let warning = this.#shouldCheckQuota
+        ? await getQuotaWarning(this, key, value)
+        : ""
+
+      await this.#primaryClient.set({ [key]: value })
+
+      return warning
     }
 
-    // when user has unlimitedStorage permission, skip used space check
-    const warning = this.#skipQuotaCheck
-      ? ""
-      : await getQuotaWarning(this.#area, this.#storage, key, value)
-
-    await this.#client.set({ [key]: value })
-
-    return warning
+    return null
   }
 
-  clear = async () => {
-    await this.#client.clear()
+  /**
+   * @param includeCopies Also cleanup copied data from secondary storage
+   */
+  clear = async (includeCopies = false) => {
+    if (includeCopies) {
+      this.#secondaryClient?.clear()
+    }
+
+    await this.#primaryClient.clear()
   }
 
   remove = async (key: string) => {
-    // If not a secret, we set it in localstorage as well
-    if (!this.#secretSet.has(key) && !this.#allSecret) {
-      this.#localClient?.removeItem(key)
+    if (this.isCopied(key)) {
+      this.#secondaryClient?.removeItem(key)
     }
 
-    if (this.hasExtensionAPI) {
-      await this.#client.remove(key)
+    if (this.hasExtensionApi) {
+      await this.#primaryClient.remove(key)
     }
   }
 
-  watch = (callbackMap: StorageCallbackMap): boolean => {
-    if (!this.isWatchingSupported()) {
-      return false
+  watch = (callbackMap: StorageCallbackMap) => {
+    const canWatch = this.isWatchSupported()
+    if (canWatch) {
+      this.#addListener(callbackMap)
     }
-
-    this.#addListener(callbackMap)
-
-    return true
+    return canWatch
   }
-
-  isWatchingSupported = () => this.hasExtensionAPI
 
   #addListener = (callbackMap: StorageCallbackMap) => {
     Object.entries(callbackMap).forEach(([key, callback]) => {
-      const callbackSet =
-        this.#chromeStorageCommsMap.get(key)?.callbackSet || new Set()
+      const callbackSet = this.#watchMap.get(key)?.callbackSet || new Set()
 
       callbackSet.add(callback)
 
@@ -175,7 +217,7 @@ export class Storage {
         changes,
         areaName
       ) => {
-        if (areaName !== this.#area) {
+        if (areaName !== this.area) {
           return
         }
 
@@ -190,48 +232,48 @@ export class Storage {
           return
         }
 
-        for (const key of relevantKeyList) {
-          const storageComms = this.#chromeStorageCommsMap.get(key)
+        Promise.all(
+          relevantKeyList.map(async (key) => {
+            const storageComms = this.#watchMap.get(key)
+            const [newValue, oldValue] = await Promise.all([
+              this.parseValue(changes[key].newValue),
+              this.parseValue(changes[key].oldValue)
+            ])
 
-          storageComms?.callbackSet?.forEach((callback) => {
-            callback(
-              {
-                newValue: this.#parseValue(changes[key].newValue),
-                oldValue: this.#parseValue(changes[key].oldValue)
-              },
-              areaName
+            storageComms?.callbackSet?.forEach((callback) =>
+              callback({ newValue, oldValue }, areaName)
             )
           })
-        }
+        )
       }
 
-      this.#storage.onChanged.addListener(chromeStorageListener)
+      this.#extStorageEngine.onChanged.addListener(chromeStorageListener)
 
-      this.#chromeStorageCommsMap.set(key, {
+      this.#watchMap.set(key, {
         callbackSet,
         listener: chromeStorageListener
       })
     })
   }
 
-  unwatch = (callbackMap: StorageCallbackMap): boolean => {
-    if (!this.isWatchingSupported()) {
-      return false
+  unwatch = (callbackMap: StorageCallbackMap) => {
+    const canWatch = this.isWatchSupported()
+    if (canWatch) {
+      this.#removeListener(callbackMap)
     }
-    this.#removeListener(callbackMap)
-    return true
+    return canWatch
   }
 
   #removeListener(callbackMap: StorageCallbackMap) {
     Object.entries(callbackMap)
-      .filter(([key]) => this.#chromeStorageCommsMap.has(key))
+      .filter(([key]) => this.#watchMap.has(key))
       .forEach(([key, callback]) => {
-        const storageComms = this.#chromeStorageCommsMap.get(key)
+        const storageComms = this.#watchMap.get(key)
         storageComms.callbackSet.delete(callback)
 
         if (storageComms.callbackSet.size === 0) {
-          this.#chromeStorageCommsMap.delete(key)
-          this.#storage.onChanged.removeListener(storageComms.listener)
+          this.#watchMap.delete(key)
+          this.#extStorageEngine.onChanged.removeListener(storageComms.listener)
         }
       })
   }
@@ -239,14 +281,48 @@ export class Storage {
   unwatchAll = () => this.#removeAllListener()
 
   #removeAllListener() {
-    this.#chromeStorageCommsMap.forEach(({ listener }) =>
-      this.#storage.onChanged.removeListener(listener)
+    this.#watchMap.forEach(({ listener }) =>
+      this.#extStorageEngine.onChanged.removeListener(listener)
     )
 
-    this.#chromeStorageCommsMap.clear()
+    this.#watchMap.clear()
   }
 
-  #parseValue(rawValue: any) {
+  /**
+   * Get value from either local storage or chrome storage.
+   */
+  abstract get: <T = string>(key: string) => Promise<T>
+
+  /**
+   * Set the value. If it is a secret, it will only be set in extension storage.
+   * Returns a warning if storage capacity is almost full.
+   * Throws error if the new item will make storage full
+   */
+  abstract set: (key: string, rawValue: any) => Promise<string>
+
+  /**
+   * Parse the value into its original form from storage raw value.
+   */
+  protected abstract parseValue: (rawValue: any) => Promise<any>
+}
+
+export type StorageOptions = ConstructorParameters<typeof BaseStorage>[0]
+
+/**
+ * https://docs.plasmo.com/framework/storage
+ */
+export class Storage extends BaseStorage {
+  get = async <T = string>(key: string) => {
+    const rawValue = await this.rawGet(key)
+    return this.parseValue(rawValue) as T
+  }
+
+  set = async (key: string, rawValue: any) => {
+    const value = JSON.stringify(rawValue)
+    return this.rawSet(key, value)
+  }
+
+  protected parseValue = async (rawValue: any) => {
     try {
       if (rawValue !== undefined) {
         return JSON.parse(rawValue)
@@ -258,5 +334,3 @@ export class Storage {
     return undefined
   }
 }
-
-export type StorageOptions = ConstructorParameters<typeof Storage>[0]

@@ -1,7 +1,7 @@
 {
   "name": "@plasmohq/storage",
-  "version": "0.15.0",
-  "description": "Safely store data and share them across your extension",
+  "version": "1.0.0",
+  "description": "Safely and securely store data and share them across your extension and websites",
   "type": "module",
   "module": "./src/index.ts",
   "types": "./src/index.ts",
@@ -9,6 +9,16 @@
     "module": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
+      "./inspector": {
+        "import": "./dist/inspector.js",
+        "require": "./dist/inspector.cjs",
+        "types": "./dist/inspector.d.ts"
+      },
+      "./secure": {
+        "import": "./dist/secure.js",
+        "require": "./dist/secure.cjs",
+        "types": "./dist/secure.d.ts"
+      },
       "./hook": {
         "import": "./dist/hook.js",
         "require": "./dist/hook.cjs",
@@ -22,6 +32,16 @@
     }
   },
   "exports": {
+    "./inspector": {
+      "import": "./src/inspector.ts",
+      "require": "./src/inspector.ts",
+      "types": "./src/inspector.ts"
+    },
+    "./secure": {
+      "import": "./src/secure.ts",
+      "require": "./src/secure.ts",
+      "types": "./src/secure.ts"
+    },
     "./hook": {
       "import": "./src/hook.ts",
       "require": "./src/hook.ts",
@@ -35,6 +55,12 @@
   },
   "typesVersions": {
     "*": {
+      "inspector": [
+        "./dist/inspector.d.ts"
+      ],
+      "secure": [
+        "./dist/secure.d.ts"
+      ],
       "hook": [
         "./dist/hook.d.ts"
       ]
@@ -46,7 +72,9 @@
   "tsup": {
     "entry": [
       "src/index.ts",
-      "src/hook.ts"
+      "src/hook.ts",
+      "src/secure.ts",
+      "src/inspector.ts"
     ],
     "format": [
       "esm",
