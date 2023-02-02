@@ -13,7 +13,17 @@ export type StorageWatchEventListener = Parameters<
 
 export type StorageAreaName = Parameters<StorageWatchEventListener>[1]
 export type StorageWatchCallback = (
-  change: browser.Storage.StorageChange,
+  change: {
+    /**
+     * The old value of the item, if there was an old value.
+     */
+    oldValue?: any
+
+    /**
+     * The new value of the item, if there is a new value.
+     */
+    newValue?: any
+  },
   area: StorageAreaName
 ) => void
 
