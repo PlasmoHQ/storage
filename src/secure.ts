@@ -124,14 +124,14 @@ export class SecureStorage extends BaseStorage {
   }
 
   get = async <T = string>(key: string) => {
-    const boxBase64 = await super.rawGet(key)
+    const boxBase64 = await this.rawGet(key)
     return this.parseValue(boxBase64) as T
   }
 
   set = async (key: string, rawValue: any) => {
     const value = JSON.stringify(rawValue)
     const boxBase64 = await this.encrypt(value)
-    return await super.rawSet(key, boxBase64)
+    return await this.rawSet(key, boxBase64)
   }
 
   protected parseValue = async (boxBase64: string) => {
