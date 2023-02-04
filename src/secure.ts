@@ -135,14 +135,9 @@ export class SecureStorage extends BaseStorage {
   }
 
   protected parseValue = async (boxBase64: string) => {
-    try {
-      if (boxBase64 !== undefined) {
-        const rawValue = await this.decrypt(boxBase64)
-        return JSON.parse(rawValue)
-      }
-    } catch (e) {
-      // ignore error. TODO: debug log them maybe
-      console.error(e)
+    if (boxBase64 !== undefined) {
+      const rawValue = await this.decrypt(boxBase64)
+      return JSON.parse(rawValue)
     }
     return undefined
   }
