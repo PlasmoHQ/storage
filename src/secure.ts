@@ -117,7 +117,7 @@ export class SecureStorage extends BaseStorage {
 
     boxBuffer.set(salt, 0)
     boxBuffer.set(iv, this.#saltSize)
-    boxBuffer.set(encryptedDataBuffer, this.#prefixSize + iv.byteLength)
+    boxBuffer.set(encryptedDataBuffer, this.#prefixSize)
 
     const boxBase64 = u8ToBase64(boxBuffer)
     return boxBase64
