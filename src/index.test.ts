@@ -5,7 +5,6 @@
  */
 import { beforeEach, describe, expect, jest, test } from "@jest/globals"
 import { act, renderHook } from "@testing-library/react"
-import type Browser from "webextension-polyfill"
 
 import type { StorageWatchEventListener } from "~index"
 
@@ -27,7 +26,7 @@ const createStorageMock = ({ getTriggers = false } = {}) => {
     removeListener: jest.fn()
   }
 
-  const storage: Browser.Storage.Static = {
+  const storage: typeof chrome.storage = {
     //@ts-ignore
     onChanged: {
       addListener: mockOutput.addListener,

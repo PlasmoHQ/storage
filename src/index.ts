@@ -3,7 +3,6 @@
  * Licensed under the MIT license.
  * This module share storage between chrome storage and local storage.
  */
-import browser from "webextension-polyfill"
 
 import { getQuotaWarning } from "./get-quota-warning"
 
@@ -13,18 +12,17 @@ export type StorageWatchEventListener = Parameters<
 
 export type StorageAreaName = Parameters<StorageWatchEventListener>[1]
 export type StorageWatchCallback = (
-  change: browser.Storage.StorageChange,
+  change: chrome.storage.StorageChange,
   area: StorageAreaName
 ) => void
 
 export type StorageCallbackMap = Record<string, StorageWatchCallback>
 
-export type StorageArea = browser.Storage.StorageArea &
-  chrome.storage.StorageArea
+export type StorageArea = chrome.storage.StorageArea
 
-export type InternalStorage = browser.Storage.Static
+export type InternalStorage = typeof chrome.storage
 
-const hasWebApi = typeof window !== "undefined"
+const hasWebApi = typeof window !== "undefined" && !!window.localStorage
 
 export abstract class BaseStorage {
   #extStorageEngine: InternalStorage
@@ -35,7 +33,7 @@ export abstract class BaseStorage {
     return this.#primaryClient
   }
 
-  #secondaryClient
+  #secondaryClient: globalThis.Storage
   get secondaryClient() {
     return this.#secondaryClient
   }
@@ -91,14 +89,14 @@ export abstract class BaseStorage {
     this.#shouldCheckQuota = unlimited
     this.#allCopied = allCopied
 
-    if (browser.storage) {
-      this.#extStorageEngine = browser.storage
-      this.#primaryClient = this.#extStorageEngine[this.area]
-      this.#hasExtensionApi = true
+    if (hasWebApi && (allCopied || copiedKeyList.length > 0)) {
+      this.#secondaryClient = window.localStorage
     }
 
-    if (hasWebApi) {
-      this.#secondaryClient = window.localStorage
+    if (!!chrome.storage) {
+      this.#extStorageEngine = chrome.storage
+      this.#primaryClient = this.#extStorageEngine[this.area]
+      this.#hasExtensionApi = true
     }
   }
 

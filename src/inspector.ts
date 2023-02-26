@@ -1,5 +1,3 @@
-import browser from "webextension-polyfill"
-
 import { Storage } from "./index"
 
 export const table = async ({
@@ -14,7 +12,7 @@ export const startChangeReporter = ({
   storage = new Storage(),
   printer = console.table
 }) => {
-  browser.storage.onChanged.addListener((changes, area) => {
+  chrome.storage.onChanged.addListener((changes, area) => {
     console.log("Storage Changed:", changes)
     if (area === storage.area) {
       table({ storage, printer })
