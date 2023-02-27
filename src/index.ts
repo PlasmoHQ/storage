@@ -89,15 +89,19 @@ export abstract class BaseStorage {
     this.#shouldCheckQuota = unlimited
     this.#allCopied = allCopied
 
-    if (hasWebApi && (allCopied || copiedKeyList.length > 0)) {
-      this.#secondaryClient = window.localStorage
-    }
+    try {
+      if (hasWebApi && (allCopied || copiedKeyList.length > 0)) {
+        this.#secondaryClient = window.localStorage
+      }
+    } catch {}
 
-    if (!!chrome.storage) {
-      this.#extStorageEngine = chrome.storage
-      this.#primaryClient = this.#extStorageEngine[this.area]
-      this.#hasExtensionApi = true
-    }
+    try {
+      if (!!chrome.storage) {
+        this.#extStorageEngine = chrome.storage
+        this.#primaryClient = this.#extStorageEngine[this.area]
+        this.#hasExtensionApi = true
+      }
+    } catch {}
   }
 
   setCopiedKeySet(keyList: string[]) {
