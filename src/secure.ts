@@ -89,22 +89,15 @@ export class SecureStorage extends BaseStorage {
     }
   }
 
-  migratePassword = async (
-    newPassword: string,
-    keySettings: Parameters<SecureStorage["setPassword"]>[1]
-  ) => {
-    const newInstance = new SecureStorage()
-    await newInstance.setPassword(newPassword, keySettings)
-
+  migrate = async (newInstance: SecureStorage) => {
     const storageMap = await this.getAll()
-    const oldKeyList = Object.keys(storageMap)
+    const baseKeyList = Object.keys(storageMap)
       .filter((k) => this.isValidKey(k))
-      .map((oldNsKey) => this.getUnnamespacedKey(oldNsKey))
+      .map((nsKey) => this.getUnnamespacedKey(nsKey))
 
     await Promise.all(
-      oldKeyList.map(async (oldKey) => {
-        const key = this.getUnnamespacedKey(oldKey)
-        const data = await this.get(oldKey)
+      baseKeyList.map(async (key) => {
+        const data = await this.get(key)
         await newInstance.set(key, data)
       })
     )
