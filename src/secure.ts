@@ -9,6 +9,9 @@ import { BaseStorage } from "./index"
 
 const { crypto } = globalThis
 
+const u8ToHex = (a: ArrayBufferLike) =>
+  Array.from(new Uint8Array(a), (v) => v.toString(16).padStart(2, "0")).join("")
+
 const u8ToBase64 = (a: ArrayBufferLike) =>
   globalThis.btoa(String.fromCharCode.apply(null, a))
 
@@ -18,6 +21,9 @@ const base64ToU8 = (base64: string) =>
 const DEFAULT_ITERATIONS = 470_000
 const DEFAULT_SALT_SIZE = 16
 const DEFAULT_IV_SIZE = 32
+const DEFAULT_NS_SIZE = 8
+
+const DEFAULT_NS_SEPARATOR = "|:|"
 
 /**
  * ALPHA API: This API is still in development and may change at any time.
@@ -52,7 +58,10 @@ export class SecureStorage extends BaseStorage {
     {
       iterations = DEFAULT_ITERATIONS,
       saltSize = DEFAULT_SALT_SIZE,
-      ivSize = DEFAULT_IV_SIZE
+      ivSize = DEFAULT_IV_SIZE,
+      namespace = "",
+      nsSize = DEFAULT_NS_SIZE,
+      nsSeparator = DEFAULT_NS_SEPARATOR
     } = {}
   ) => {
     this.#iterations = iterations
@@ -67,6 +76,40 @@ export class SecureStorage extends BaseStorage {
       false, // Not exportable
       ["deriveKey"]
     )
+
+    if (!namespace) {
+      const hashBuffer = await crypto.subtle.digest(
+        this.#hashAlgo,
+        passwordBuffer
+      )
+
+      this.keyNamespace = `${u8ToHex(hashBuffer).slice(-nsSize)}${nsSeparator}`
+    } else {
+      this.keyNamespace = `${namespace}${nsSeparator}`
+    }
+  }
+
+  migratePassword = async (
+    newPassword: string,
+    keySettings: Parameters<SecureStorage["setPassword"]>[1]
+  ) => {
+    const newInstance = new SecureStorage()
+    await newInstance.setPassword(newPassword, keySettings)
+
+    const storageMap = await this.getAll()
+    const oldKeyList = Object.keys(storageMap)
+      .filter((k) => this.isValidKey(k))
+      .map((oldNsKey) => this.getUnnamespacedKey(oldNsKey))
+
+    await Promise.all(
+      oldKeyList.map(async (oldKey) => {
+        const key = this.getUnnamespacedKey(oldKey)
+        const data = await this.get(oldKey)
+        await newInstance.set(key, data)
+      })
+    )
+
+    return newInstance
   }
 
   /**
@@ -124,14 +167,16 @@ export class SecureStorage extends BaseStorage {
   }
 
   get = async <T = string>(key: string) => {
-    const boxBase64 = await this.rawGet(key)
+    const nsKey = this.getNamespacedKey(key)
+    const boxBase64 = await this.rawGet(nsKey)
     return this.parseValue(boxBase64) as T
   }
 
   set = async (key: string, rawValue: any) => {
+    const nsKey = this.getNamespacedKey(key)
     const value = JSON.stringify(rawValue)
     const boxBase64 = await this.encrypt(value)
-    return await this.rawSet(key, boxBase64)
+    return await this.rawSet(nsKey, boxBase64)
   }
 
   protected parseValue = async (boxBase64: string) => {

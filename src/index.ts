@@ -78,6 +78,11 @@ export abstract class BaseStorage {
 
   isWatchSupported = () => this.hasExtensionApi
 
+  protected keyNamespace = ""
+  isValidKey = (nsKey: string) => nsKey.startsWith(this.keyNamespace)
+  getNamespacedKey = (key: string) => `${this.keyNamespace}${key}`
+  getUnnamespacedKey = (nsKey: string) => nsKey.slice(this.keyNamespace.length)
+
   constructor({
     area = "sync" as StorageAreaName,
     unlimited = false,
@@ -207,8 +212,9 @@ export abstract class BaseStorage {
 
   #addListener = (callbackMap: StorageCallbackMap) => {
     Object.entries(callbackMap).forEach(([key, callback]) => {
-      const callbackSet = this.#watchMap.get(key)?.callbackSet || new Set()
+      const nsKey = this.getNamespacedKey(key)
 
+      const callbackSet = this.#watchMap.get(nsKey)?.callbackSet || new Set()
       callbackSet.add(callback)
 
       if (callbackSet.size > 1) {
@@ -226,8 +232,8 @@ export abstract class BaseStorage {
         const callbackKeySet = new Set(Object.keys(callbackMap))
         const changeKeys = Object.keys(changes)
 
-        const relevantKeyList = changeKeys.filter((key) =>
-          callbackKeySet.has(key)
+        const relevantKeyList = changeKeys.filter((changedKey) =>
+          callbackKeySet.has(changedKey)
         )
 
         if (relevantKeyList.length === 0) {
@@ -235,11 +241,11 @@ export abstract class BaseStorage {
         }
 
         Promise.all(
-          relevantKeyList.map(async (key) => {
-            const storageComms = this.#watchMap.get(key)
+          relevantKeyList.map(async (relevantKey) => {
+            const storageComms = this.#watchMap.get(relevantKey)
             const [newValue, oldValue] = await Promise.all([
-              this.parseValue(changes[key].newValue),
-              this.parseValue(changes[key].oldValue)
+              this.parseValue(changes[relevantKey].newValue),
+              this.parseValue(changes[relevantKey].oldValue)
             ])
 
             storageComms?.callbackSet?.forEach((callback) =>
@@ -251,7 +257,7 @@ export abstract class BaseStorage {
 
       this.#extStorageEngine.onChanged.addListener(chromeStorageListener)
 
-      this.#watchMap.set(key, {
+      this.#watchMap.set(nsKey, {
         callbackSet,
         listener: chromeStorageListener
       })
@@ -267,17 +273,19 @@ export abstract class BaseStorage {
   }
 
   #removeListener(callbackMap: StorageCallbackMap) {
-    Object.entries(callbackMap)
-      .filter(([key]) => this.#watchMap.has(key))
-      .forEach(([key, callback]) => {
-        const storageComms = this.#watchMap.get(key)
+    for (const [key, callback] of Object.entries(callbackMap)) {
+      const nsKey = this.getNamespacedKey(key)
+
+      if (this.#watchMap.has(nsKey)) {
+        const storageComms = this.#watchMap.get(nsKey)
         storageComms.callbackSet.delete(callback)
 
         if (storageComms.callbackSet.size === 0) {
-          this.#watchMap.delete(key)
+          this.#watchMap.delete(nsKey)
           this.#extStorageEngine.onChanged.removeListener(storageComms.listener)
         }
-      })
+      }
+    }
   }
 
   unwatchAll = () => this.#removeAllListener()
@@ -315,13 +323,19 @@ export type StorageOptions = ConstructorParameters<typeof BaseStorage>[0]
  */
 export class Storage extends BaseStorage {
   get = async <T = string>(key: string) => {
-    const rawValue = await this.rawGet(key)
+    const nsKey = this.getNamespacedKey(key)
+    const rawValue = await this.rawGet(nsKey)
     return this.parseValue(rawValue) as T
   }
 
   set = async (key: string, rawValue: any) => {
+    const nsKey = this.getNamespacedKey(key)
     const value = JSON.stringify(rawValue)
-    return this.rawSet(key, value)
+    return this.rawSet(nsKey, value)
+  }
+
+  setNamespace = (namespace: string) => {
+    this.keyNamespace = namespace
   }
 
   protected parseValue = async (rawValue: any) => {

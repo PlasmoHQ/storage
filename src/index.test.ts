@@ -8,22 +8,35 @@ import { act, renderHook } from "@testing-library/react"
 
 import type { StorageWatchEventListener } from "~index"
 
-const browserMock = {} as any
-
-jest.mock("webextension-polyfill", () => browserMock)
-
 const { Storage } = await import("~index")
 const { useStorage } = await import("~hook")
 
+const mockStorage = {
+  data: {},
+  get(key: string) {
+    return {
+      [key]: this.data[key]
+    }
+  },
+  set(key: string, value: string) {
+    this.data[key] = value
+  },
+  clear() {
+    this.data = {}
+  }
+}
+
 beforeEach(() => {
-  localStorage.clear()
+  mockStorage.clear()
 })
 
 const createStorageMock = ({ getTriggers = false } = {}) => {
   const mockOutput = {
     triggerChange: null as StorageWatchEventListener,
     addListener: jest.fn(),
-    removeListener: jest.fn()
+    removeListener: jest.fn(),
+    getTriggers: jest.fn(),
+    setTriggers: jest.fn()
   }
 
   const storage: typeof chrome.storage = {
@@ -35,9 +48,13 @@ const createStorageMock = ({ getTriggers = false } = {}) => {
     sync: {
       // Needed because react hook tries to directly read the value
       //@ts-ignore
-      get: async () => jest.fn(),
+      get: mockOutput.getTriggers.mockImplementation((key: any) =>
+        mockStorage.get(key)
+      ),
       //@ts-ignore
-      set: async () => jest.fn()
+      set: mockOutput.setTriggers.mockImplementation((key: any, value: any) => {
+        mockStorage.set(key, value)
+      })
     }
   }
 
@@ -47,31 +64,30 @@ const createStorageMock = ({ getTriggers = false } = {}) => {
     }
   }
 
-  browserMock.storage = storage
+  chrome.storage = storage
 
   return mockOutput
 }
 
 describe("react hook", () => {
-  test("stores basic text data ", async () => {
-    const key = "test"
+  test.only("stores basic text data ", async () => {
+    const { setTriggers } = createStorageMock()
 
+    const key = "test"
     const value = "hello world"
 
-    const { result, unmount } = renderHook(() =>
-      useStorage({
-        key,
-        instance: new Storage({ allCopied: true })
-      })
-    )
+    const { result, unmount } = renderHook(() => useStorage(key))
 
     await act(async () => {
       await result.current[1](value)
     })
 
+    expect(setTriggers).toHaveBeenCalledWith({
+      [key]: JSON.stringify(value)
+    })
+
     expect(result.current[0]).toBe(value)
 
-    expect(localStorage.getItem(key)).toBe(JSON.stringify(value))
     unmount()
   })
 
