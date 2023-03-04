@@ -22,8 +22,6 @@ export type StorageArea = chrome.storage.StorageArea
 
 export type InternalStorage = typeof chrome.storage
 
-const hasWebApi = typeof window !== "undefined" && !!window.localStorage
-
 export abstract class BaseStorage {
   #extStorageEngine: InternalStorage
   #shouldCheckQuota = false
@@ -43,8 +41,13 @@ export abstract class BaseStorage {
     return this.#area
   }
 
-  get hasWebAPI() {
-    return hasWebApi
+  get hasWebApi() {
+    try {
+      return typeof window !== "undefined" && !!window.localStorage
+    } catch (error) {
+      console.error(error)
+      return false
+    }
   }
 
   #watchMap = new Map<
@@ -64,16 +67,20 @@ export abstract class BaseStorage {
    * the key is copied to the webClient
    */
   isCopied = (key: string) =>
-    this.hasWebAPI && (this.allCopied || this.copiedKeySet.has(key))
+    this.hasWebApi && (this.allCopied || this.copiedKeySet.has(key))
 
   #allCopied = false
   get allCopied() {
     return this.#allCopied
   }
 
-  #hasExtensionApi = false
   get hasExtensionApi() {
-    return this.#hasExtensionApi
+    try {
+      return !!chrome?.storage
+    } catch (error) {
+      console.error(error)
+      return false
+    }
   }
 
   isWatchSupported = () => this.hasExtensionApi
@@ -95,16 +102,15 @@ export abstract class BaseStorage {
     this.#allCopied = allCopied
 
     try {
-      if (hasWebApi && (allCopied || copiedKeyList.length > 0)) {
+      if (this.hasWebApi && (allCopied || copiedKeyList.length > 0)) {
         this.#secondaryClient = window.localStorage
       }
     } catch {}
 
     try {
-      if (!!chrome.storage) {
+      if (this.hasExtensionApi) {
         this.#extStorageEngine = chrome.storage
         this.#primaryClient = this.#extStorageEngine[this.area]
-        this.#hasExtensionApi = true
       }
     } catch {}
   }
