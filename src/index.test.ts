@@ -18,7 +18,7 @@ const mockStorage = {
       [key]: this.data[key]
     }
   },
-  set(key: string, value: string) {
+  set(key = "", value = "") {
     this.data[key] = value
   },
   clear() {
@@ -30,19 +30,37 @@ beforeEach(() => {
   mockStorage.clear()
 })
 
-const createStorageMock = ({ getTriggers = false } = {}) => {
+const createStorageMock = () => {
   const mockOutput = {
-    triggerChange: null as StorageWatchEventListener,
+    triggerChange: jest
+      .fn()
+      .mockImplementation(
+        (changes: { [key: string]: chrome.storage.StorageChange }) => {
+          console.log(changes)
+
+          Object.entries(changes).forEach(([key, value]) => {
+            console.log(value)
+
+            mockStorage.set(key, value.newValue)
+          })
+        }
+      ),
     addListener: jest.fn(),
     removeListener: jest.fn(),
     getTriggers: jest.fn(),
     setTriggers: jest.fn()
   }
 
+  let onChangedCallback: StorageWatchEventListener
+
   const storage: typeof chrome.storage = {
     //@ts-ignore
     onChanged: {
-      addListener: mockOutput.addListener,
+      addListener: mockOutput.addListener.mockImplementation(
+        (d: StorageWatchEventListener) => {
+          onChangedCallback = d
+        }
+      ),
       removeListener: mockOutput.removeListener
     },
     sync: {
@@ -52,18 +70,25 @@ const createStorageMock = ({ getTriggers = false } = {}) => {
         mockStorage.get(key)
       ),
       //@ts-ignore
-      set: mockOutput.setTriggers.mockImplementation((key: any, value: any) => {
-        mockStorage.set(key, value)
-      })
+      set: mockOutput.setTriggers.mockImplementation(
+        (changes: { [key: string]: any }) => {
+          Object.entries(changes).forEach(([key, value]) => {
+            mockStorage.set(key, value)
+
+            onChangedCallback(
+              {
+                [key]: {
+                  oldValue: undefined,
+                  newValue: value
+                }
+              },
+              "sync"
+            )
+          })
+        }
+      )
     }
   }
-
-  if (getTriggers) {
-    storage.onChanged.addListener = (listener) => {
-      mockOutput.triggerChange = listener
-    }
-  }
-
   chrome.storage = storage
 
   return mockOutput
@@ -171,7 +196,7 @@ describe("watch/unwatch", () => {
   })
 
   test("calls all watch listeners", () => {
-    const storageMock = createStorageMock({ getTriggers: true })
+    const storageMock = createStorageMock()
 
     const storage = new Storage()
 
@@ -193,7 +218,7 @@ describe("watch/unwatch", () => {
   })
 
   test("doesn't call unwatched listeners", () => {
-    const storageMock = createStorageMock({ getTriggers: true })
+    const storageMock = createStorageMock()
 
     const storage = new Storage()
 
