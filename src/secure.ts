@@ -18,7 +18,7 @@ const u8ToBase64 = (a: ArrayBufferLike) =>
 const base64ToU8 = (base64: string) =>
   Uint8Array.from(globalThis.atob(base64), (c) => c.charCodeAt(0))
 
-const DEFAULT_ITERATIONS = 470_000
+const DEFAULT_ITERATIONS = 147_000
 const DEFAULT_SALT_SIZE = 16
 const DEFAULT_IV_SIZE = 32
 const DEFAULT_NS_SIZE = 8

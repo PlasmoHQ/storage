@@ -98,7 +98,7 @@ export abstract class BaseStorage {
   } = {}) {
     this.setCopiedKeySet(copiedKeyList)
     this.#area = area
-    this.#shouldCheckQuota = unlimited
+    this.#shouldCheckQuota = !unlimited
     this.#allCopied = allCopied
 
     try {
