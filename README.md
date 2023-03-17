@@ -34,7 +34,7 @@ Visit: [https://docs.plasmo.com/framework/storage](https://docs.plasmo.com/frame
 
 ## Firefox
 
-To use the storage API on Firefox during development you need to add an addon ID to your manifest, otherwise you will get this error:
+To use the storage API on Firefox during development you need to add an addon ID to your manifest, otherwise, you will get this error:
 
 > Error: The storage API will not work with a temporary addon ID. Please add an explicit addon ID to your manifest. For more information see https://mzl.la/3lPk1aE.
 

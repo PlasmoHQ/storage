@@ -77,7 +77,8 @@ const createStorageMock = () => {
       )
     }
   }
-  chrome.storage = storage
+
+  globalThis.chrome.storage = storage
 
   return mockOutput
 }
@@ -140,7 +141,7 @@ describe("react hook", () => {
   test("removes watch listener when unmounting", () => {
     const { addListener, removeListener } = createStorageMock()
 
-    const { result, unmount, rerender } = renderHook(() => useStorage("stuff"))
+    const { result, unmount } = renderHook(() => useStorage("stuff"))
 
     expect(addListener).toHaveBeenCalled()
 

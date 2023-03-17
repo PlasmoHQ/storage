@@ -4,7 +4,9 @@
  * This module share storage between chrome storage and local storage.
  */
 
-import { getQuotaWarning } from "./get-quota-warning"
+import pify from "pify"
+
+import { isChromeBelow100 } from "./utils"
 
 export type StorageWatchEventListener = Parameters<
   typeof chrome.storage.onChanged.addListener
@@ -24,7 +26,6 @@ export type InternalStorage = typeof chrome.storage
 
 export abstract class BaseStorage {
   #extStorageEngine: InternalStorage
-  #shouldCheckQuota = false
 
   #primaryClient: StorageArea
   get primaryClient() {
@@ -74,9 +75,13 @@ export abstract class BaseStorage {
     return this.#allCopied
   }
 
+  getExtStorageApi = () => {
+    return globalThis.browser?.storage || globalThis.chrome?.storage
+  }
+
   get hasExtensionApi() {
     try {
-      return !!chrome?.storage
+      return !!this.getExtStorageApi()
     } catch (error) {
       console.error(error)
       return false
@@ -92,13 +97,11 @@ export abstract class BaseStorage {
 
   constructor({
     area = "sync" as StorageAreaName,
-    unlimited = false,
     allCopied = false,
     copiedKeyList = [] as string[]
   } = {}) {
     this.setCopiedKeySet(copiedKeyList)
     this.#area = area
-    this.#shouldCheckQuota = !unlimited
     this.#allCopied = allCopied
 
     try {
@@ -109,8 +112,15 @@ export abstract class BaseStorage {
 
     try {
       if (this.hasExtensionApi) {
-        this.#extStorageEngine = chrome.storage
-        this.#primaryClient = this.#extStorageEngine[this.area]
+        this.#extStorageEngine = this.getExtStorageApi()
+
+        if (isChromeBelow100()) {
+          this.#primaryClient = pify(this.#extStorageEngine[this.area], {
+            exclude: ["getBytesInUse"]
+          })
+        } else {
+          this.#primaryClient = this.#extStorageEngine[this.area]
+        }
       }
     } catch {}
   }
@@ -140,6 +150,10 @@ export abstract class BaseStorage {
       ? await this.getAll()
       : await this.#primaryClient.get(syncAll ? [...this.copiedKeySet] : [key])
 
+    if (!dataMap) {
+      return false
+    }
+
     let changed = false
 
     for (const pKey in dataMap) {
@@ -155,6 +169,7 @@ export abstract class BaseStorage {
   protected rawGet = async (key: string): Promise<string> => {
     if (this.hasExtensionApi) {
       const dataMap = await this.#primaryClient.get(key)
+
       return dataMap[key]
     }
 
@@ -174,14 +189,7 @@ export abstract class BaseStorage {
     }
 
     if (this.hasExtensionApi) {
-      // when user has unlimitedStorage permission, skip used space check
-      let warning = this.#shouldCheckQuota
-        ? await getQuotaWarning(this, key, value)
-        : ""
-
       await this.#primaryClient.set({ [key]: value })
-
-      return warning
     }
 
     return null
