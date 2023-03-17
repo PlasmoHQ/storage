@@ -2,8 +2,6 @@ export const isChromeBelow100 = () => {
   try {
     const ua = navigator.userAgent
 
-    // console.log(ua)
-
     let browserMatch =
       ua.match(
         /(opera|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i
