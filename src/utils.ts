@@ -2,7 +2,7 @@ export const isChromeBelow100 = () => {
   try {
     const ua = navigator.userAgent
 
-    console.log(ua)
+    // console.log(ua)
 
     let browserMatch =
       ua.match(
