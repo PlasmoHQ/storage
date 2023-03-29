@@ -129,7 +129,17 @@ export abstract class BaseStorage {
     this.#copiedKeySet = new Set(keyList)
   }
 
-  getAll = () => this.#primaryClient?.get()
+  rawGetAll = () => this.#primaryClient?.get()
+
+  getAll = async () => {
+    const allData = await this.rawGetAll()
+    return Object.entries(allData)
+      .filter(([key]) => this.isValidKey(key))
+      .reduce((acc, [key, value]) => {
+        acc[this.getUnnamespacedKey(key)] = value
+        return acc
+      }, {} as Record<string, string>)
+  }
 
   /**
    * Copy the key/value between extension storage and web storage.
@@ -147,8 +157,10 @@ export abstract class BaseStorage {
     }
 
     const dataMap = this.allCopied
-      ? await this.getAll()
-      : await this.#primaryClient.get(syncAll ? [...this.copiedKeySet] : [key])
+      ? await this.rawGetAll()
+      : await this.#primaryClient.get(
+          (syncAll ? [...this.copiedKeySet] : [key]).map(this.getNamespacedKey)
+        )
 
     if (!dataMap) {
       return false
@@ -214,6 +226,13 @@ export abstract class BaseStorage {
     if (this.hasExtensionApi) {
       await this.#primaryClient.remove(key)
     }
+  }
+
+  removeAll = async () => {
+    const allData = await this.getAll()
+    const keyList = Object.keys(allData)
+
+    await Promise.all(keyList.map(this.remove))
   }
 
   watch = (callbackMap: StorageCallbackMap) => {
