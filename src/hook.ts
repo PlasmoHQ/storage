@@ -5,7 +5,7 @@
  */
 import { useCallback, useEffect, useRef, useState } from "react"
 
-import { BaseStorage, Storage, StorageCallbackMap } from "./index"
+import { BaseStorage, Storage, type StorageCallbackMap } from "./index"
 
 type Setter<T> = ((v?: T, isHydrating?: boolean) => T) | T
 
