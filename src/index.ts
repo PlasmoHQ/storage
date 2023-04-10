@@ -244,48 +244,34 @@ export abstract class BaseStorage {
   }
 
   #addListener = (callbackMap: StorageCallbackMap) => {
-    Object.entries(callbackMap).forEach(([key, callback]) => {
-      const nsKey = this.getNamespacedKey(key)
-
+    for (const cbKey in callbackMap) {
+      const nsKey = this.getNamespacedKey(cbKey)
       const callbackSet = this.#watchMap.get(nsKey)?.callbackSet || new Set()
-      callbackSet.add(callback)
+      callbackSet.add(callbackMap[cbKey])
 
       if (callbackSet.size > 1) {
         return
       }
 
-      const chromeStorageListener: StorageWatchCallback = (
-        changes,
-        areaName
+      const chromeStorageListener = (
+        changes: {
+          [key: string]: chrome.storage.StorageChange
+        },
+        areaName: StorageAreaName
       ) => {
-        if (areaName !== this.area) {
+        if (areaName !== this.area || !changes[nsKey]) {
           return
         }
 
-        const callbackKeySet = new Set(Object.keys(callbackMap))
-        const changeKeys = Object.keys(changes)
-
-        const relevantKeyList = changeKeys.filter((changedKey) =>
-          callbackKeySet.has(changedKey)
-        )
-
-        if (relevantKeyList.length === 0) {
-          return
-        }
-
-        Promise.all(
-          relevantKeyList.map(async (relevantKey) => {
-            const storageComms = this.#watchMap.get(relevantKey)
-            const [newValue, oldValue] = await Promise.all([
-              this.parseValue(changes[relevantKey].newValue),
-              this.parseValue(changes[relevantKey].oldValue)
-            ])
-
-            storageComms?.callbackSet?.forEach((callback) =>
-              callback({ newValue, oldValue }, areaName)
-            )
-          })
-        )
+        const storageComms = this.#watchMap.get(nsKey)
+        Promise.all([
+          this.parseValue(changes[nsKey].newValue),
+          this.parseValue(changes[nsKey].oldValue)
+        ]).then(([newValue, oldValue]) => {
+          for (const cb of storageComms.callbackSet) {
+            cb({ newValue, oldValue }, areaName)
+          }
+        })
       }
 
       this.#extStorageEngine.onChanged.addListener(chromeStorageListener)
@@ -294,7 +280,7 @@ export abstract class BaseStorage {
         callbackSet,
         listener: chromeStorageListener
       })
-    })
+    }
   }
 
   unwatch = (callbackMap: StorageCallbackMap) => {
@@ -306,9 +292,9 @@ export abstract class BaseStorage {
   }
 
   #removeListener(callbackMap: StorageCallbackMap) {
-    for (const [key, callback] of Object.entries(callbackMap)) {
-      const nsKey = this.getNamespacedKey(key)
-
+    for (const cbKey in callbackMap) {
+      const nsKey = this.getNamespacedKey(cbKey)
+      const callback = callbackMap[cbKey]
       if (this.#watchMap.has(nsKey)) {
         const storageComms = this.#watchMap.get(nsKey)
         storageComms.callbackSet.delete(callback)
