@@ -13,13 +13,19 @@ const { useStorage } = await import("~hook")
 
 const mockStorage = {
   data: {},
-  get(key: string) {
+  get(key?: string) {
+    if (!key) {
+      return {...this.data}
+    }
     return {
       [key]: this.data[key]
     }
   },
   set(key = "", value = "") {
     this.data[key] = value
+  },
+  remove(key: string) {
+    delete this.data[key]
   },
   clear() {
     this.data = {}
@@ -38,7 +44,8 @@ const createStorageMock = () => {
     addListener: jest.fn(),
     removeListener: jest.fn(),
     getTriggers: jest.fn(),
-    setTriggers: jest.fn()
+    setTriggers: jest.fn(),
+    removeTriggers: jest.fn(),
   }
 
   const storage: typeof chrome.storage = {
@@ -63,7 +70,7 @@ const createStorageMock = () => {
           Object.entries(changes).forEach(([key, value]) => {
             mockStorage.set(key, value)
 
-            onChangedCallback(
+            onChangedCallback && onChangedCallback(
               {
                 [key]: {
                   oldValue: undefined,
@@ -73,6 +80,22 @@ const createStorageMock = () => {
               "sync"
             )
           })
+        }
+      ),
+      //@ts-ignore
+      remove: mockOutput.removeTriggers.mockImplementation(
+        (key: string) => {
+          mockStorage.remove(key)
+
+          onChangedCallback && onChangedCallback(
+            {
+              [key]: {
+                oldValue: mockStorage.data[key],
+                newValue: undefined
+              }
+            },
+            "sync"
+          )
         }
       )
     }
@@ -220,3 +243,107 @@ describe("watch/unwatch", () => {
     expect(storageMock.removeListener).toHaveBeenCalled()
   })
 })
+
+// Create a new describe block for CRUD operations with namespace
+describe("Storage - Basic CRUD operations with namespace", () => {
+  // Declare the storage and namespace variables
+  let storage = new Storage();
+  let storageMock: ReturnType<typeof createStorageMock>;
+  const namespace = "testNamespace:";
+
+  // Initialize storage and storageMock before each test case
+  beforeEach(() => {
+    storageMock = createStorageMock();
+    storage = new Storage();
+    storage.setNamespace(namespace);
+  });
+
+  // Test set operation with namespace
+  test("set operation", async () => {
+    // Test data
+    const testKey = "key";
+    const testValue = "value";
+
+    // Perform set operation
+    await storage.set(testKey, testValue);
+
+    // Check if storageMock.setTriggers is called with the correct parameters
+    expect(storageMock.setTriggers).toHaveBeenCalledWith({
+      [`${namespace}${testKey}`]: JSON.stringify(testValue)
+    });
+  });
+
+  // Test get operation with namespace
+  test("get operation", async () => {
+    // Test data
+    const testKey = "key";
+    const testValue = "value";
+
+    // Perform set operation
+    await storage.set(testKey, testValue);
+
+    // Perform get operation
+    const getValue = await storage.get(testKey);
+
+    // Check if storageMock.getTriggers is called with the correct parameter
+    expect(storageMock.getTriggers).toHaveBeenCalledWith(`${namespace}${testKey}`);
+
+    // Check if the returned value is correct
+    expect(getValue).toEqual(testValue);
+  });
+
+  // Test getAll operation with namespace
+  test("getAll operation", async () => {
+    // Test data
+    const testKey1 = "key1";
+    const testValue1 = "value1";
+    const testKey2 = "key2";
+    const testValue2 = "value2";
+
+    // Perform set operations for two keys
+    await storage.set(testKey1, testValue1);
+    await storage.set(testKey2, testValue2);
+
+    // Perform getAll operation
+    const allData = await storage.getAll();
+
+    // Check if the returned object has the correct keys 
+    // and ensure the keys are without namespace
+    expect(Object.keys(allData)).toEqual([testKey1, testKey2]);
+  });
+
+  // Test remove operation with namespace
+  test("remove operation", async () => {
+    // Test data
+    const testKey = "key";
+    const testValue = "value";
+
+    // Perform set operation
+    await storage.set(testKey, testValue);
+
+    // Perform remove operation
+    await storage.remove(testKey);
+
+    // Check if storageMock.removeListener is called with the correct parameter
+    expect(storageMock.removeTriggers).toHaveBeenCalledWith(`${namespace}${testKey}`);
+  });
+
+  // Test removeAll operation with namespace
+  test("removeAll operation", async () => {
+    // Test data
+    const testKey1 = "key1";
+    const testValue1 = "value1";
+    const testKey2 = "key2";
+    const testValue2 = "value2";
+
+    // Perform set operations for two keys
+    await storage.set(testKey1, testValue1);
+    await storage.set(testKey2, testValue2);
+
+    // Perform removeAll operation
+    await storage.removeAll();
+
+    expect(storageMock.removeTriggers).toHaveBeenCalledWith(`${namespace}${testKey1}`);
+    expect(storageMock.removeTriggers).toHaveBeenCalledWith(`${namespace}${testKey2}`);
+  });
+});

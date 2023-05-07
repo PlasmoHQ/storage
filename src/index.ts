@@ -218,7 +218,7 @@ export abstract class BaseStorage {
     await this.#primaryClient.clear()
   }
 
-  remove = async (key: string) => {
+  protected rawRemove = async (key: string) => {
     if (this.isCopied(key)) {
       this.#secondaryClient?.removeItem(key)
     }
@@ -229,10 +229,11 @@ export abstract class BaseStorage {
   }
 
   removeAll = async () => {
-    const allData = await this.getAll()
+    // Using rawGetAll to retrieve all keys with namespace
+    const allData = await this.rawGetAll()
     const keyList = Object.keys(allData)
 
-    await Promise.all(keyList.map(this.remove))
+    await Promise.all(keyList.map(this.rawRemove))
   }
 
   watch = (callbackMap: StorageCallbackMap) => {
@@ -329,6 +330,9 @@ export abstract class BaseStorage {
    */
   abstract set: (key: string, rawValue: any) => Promise<string>
 
+
+  abstract remove: (key: string) => Promise<void>
+
   /**
    * Parse the value into its original form from storage raw value.
    */
@@ -351,6 +355,11 @@ export class Storage extends BaseStorage {
     const nsKey = this.getNamespacedKey(key)
     const value = JSON.stringify(rawValue)
     return this.rawSet(nsKey, value)
+  }
+
+  remove = async (key: string) => {
+    const nsKey = this.getNamespacedKey(key)
+    return this.rawRemove(nsKey)
   }
 
   setNamespace = (namespace: string) => {
