@@ -330,7 +330,6 @@ export abstract class BaseStorage {
    */
   abstract set: (key: string, rawValue: any) => Promise<string>
 
-
   abstract remove: (key: string) => Promise<void>
 
   /**

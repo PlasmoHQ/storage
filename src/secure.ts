@@ -23,7 +23,7 @@ const DEFAULT_SALT_SIZE = 16
 const DEFAULT_IV_SIZE = 32
 const DEFAULT_NS_SIZE = 8
 
-const DEFAULT_NS_SEPARATOR = "|:|"
+export const DEFAULT_NS_SEPARATOR = "|:|"
 
 /**
  * ALPHA API: This API is still in development and may change at any time.
@@ -170,6 +170,11 @@ export class SecureStorage extends BaseStorage {
     const value = JSON.stringify(rawValue)
     const boxBase64 = await this.encrypt(value)
     return await this.rawSet(nsKey, boxBase64)
+  }
+
+  remove = async (key: string) => {
+    const nsKey = this.getNamespacedKey(key)
+    return await this.rawRemove(nsKey)
   }
 
   protected parseValue = async (boxBase64: string) => {
