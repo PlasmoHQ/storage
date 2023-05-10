@@ -1,4 +1,3 @@
-// @ts-check
 import { jest } from "@jest/globals"
 
 /**
@@ -40,24 +39,20 @@ cryptoMock.subtle.deriveKey.mockImplementation(
   }
 )
 
-cryptoMock.subtle.decrypt.mockImplementation((algorithm, key, data) => {
-  // @ts-ignore
+cryptoMock.subtle.decrypt.mockImplementation((_, __, data: ArrayBufferLike) => {
   return Promise.resolve(new Uint8Array(data))
 })
 
-cryptoMock.subtle.encrypt.mockImplementation((algorithm, key, data) => {
-  // @ts-ignore
+cryptoMock.subtle.encrypt.mockImplementation((_, __, data: ArrayBufferLike) => {
   return Promise.resolve(new Uint8Array(data))
 })
 
-cryptoMock.subtle.digest.mockImplementation((algorithm, data) => {
+cryptoMock.subtle.digest.mockImplementation((_, __) => {
   return Promise.resolve(new Uint8Array([0x01, 0x02, 0x03, 0x04]))
 })
 
-cryptoMock.getRandomValues.mockImplementation((array) => {
-  // @ts-ignore
+cryptoMock.getRandomValues.mockImplementation((array: Array<any>) => {
   for (let i = 0; i < array.length; i++) {
-    // @ts-ignore
     array[i] = Math.floor(Math.random() * 256)
   }
   return array
