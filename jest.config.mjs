@@ -5,6 +5,7 @@
 const config = {
   clearMocks: true,
   testEnvironment: "jsdom",
+  setupFilesAfterEnv: ["<rootDir>/jest.setup.mts"],
   extensionsToTreatAsEsm: [".ts"],
   globals: {
     chrome: {
