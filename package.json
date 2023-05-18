@@ -29,6 +29,19 @@
         "require": "./dist/index.cjs",
         "types": "./dist/index.d.ts"
       }
+    },
+    "typesVersions": {
+      "*": {
+        "inspector": [
+          "./dist/inspector.d.ts"
+        ],
+        "secure": [
+          "./dist/secure.d.ts"
+        ],
+        "hook": [
+          "./dist/hook.d.ts"
+        ]
+      }
     }
   },
   "exports": {
@@ -56,13 +69,13 @@
   "typesVersions": {
     "*": {
       "inspector": [
-        "./dist/inspector.d.ts"
+        "./src/inspector.d.ts"
       ],
       "secure": [
-        "./dist/secure.d.ts"
+        "./src/secure.d.ts"
       ],
       "hook": [
-        "./dist/hook.d.ts"
+        "./src/hook.d.ts"
       ]
     }
   },
