@@ -251,7 +251,7 @@ export abstract class BaseStorage {
       callbackSet.add(callbackMap[cbKey])
 
       if (callbackSet.size > 1) {
-        return
+        continue;
       }
 
       const chromeStorageListener = (
