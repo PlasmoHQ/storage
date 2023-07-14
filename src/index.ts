@@ -135,10 +135,13 @@ export abstract class BaseStorage {
     const allData = await this.rawGetAll()
     return Object.entries(allData)
       .filter(([key]) => this.isValidKey(key))
-      .reduce((acc, [key, value]) => {
-        acc[this.getUnnamespacedKey(key)] = value
-        return acc
-      }, {} as Record<string, string>)
+      .reduce(
+        (acc, [key, value]) => {
+          acc[this.getUnnamespacedKey(key)] = value
+          return acc
+        },
+        {} as Record<string, string>
+      )
   }
 
   /**
@@ -336,6 +339,27 @@ export abstract class BaseStorage {
    * Parse the value into its original form from storage raw value.
    */
   protected abstract parseValue: (rawValue: any) => Promise<any>
+
+  /**
+   * Alias for get
+   */
+  async getItem<T = string>(key: string) {
+    return this.get<T>(key)
+  }
+
+  /**
+   * Alias for set, but returns void instead
+   */
+  async setItem(key: string, rawValue: any) {
+    await this.set(key, rawValue)
+  }
+
+  /**
+   * Alias for remove
+   */
+  async removeItem(key: string) {
+    return this.remove(key)
+  }
 }
 
 export type StorageOptions = ConstructorParameters<typeof BaseStorage>[0]
