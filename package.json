@@ -137,7 +137,6 @@
   "devDependencies": {
     "@jest/globals": "29.6.1",
     "@jest/types": "29.6.1",
-    "@plasmohq/prettier-plugin-sort-imports": "workspace:*",
     "@plasmohq/rps": "workspace:*",
     "@testing-library/react": "14.0.0",
     "@types/chrome": "0.0.241",
