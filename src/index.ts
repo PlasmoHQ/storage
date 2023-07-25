@@ -116,6 +116,7 @@ export abstract class BaseStorage {
 
         if (isChromeBelow100()) {
           this.#primaryClient = pify(this.#extStorageEngine[this.area], {
+            errorFirst: false,
             exclude: ["getBytesInUse"]
           })
         } else {
