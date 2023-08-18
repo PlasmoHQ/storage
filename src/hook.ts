@@ -38,6 +38,26 @@ export const useStorage = <T = any>(rawKey: RawKey, onInit?: Setter<T>) => {
   // Storage state
   const storageRef = useRef(isObjectKey ? rawKey.instance : new Storage())
 
+  // Save the value OR current rendering value into chrome storage
+  const setStoreValue = useCallback(
+    (v?: T) => storageRef.current.set(key, v !== undefined ? v : renderValue),
+    [renderValue, key]
+  )
+
+  // Store the value into chrome storage, then set its render state
+  const persistValue = useCallback(
+    async (setter: Setter<T>) => {
+      const newValue = setter instanceof Function ? setter(renderValue) : setter
+
+      await setStoreValue(newValue)
+
+      if (isMounted.current) {
+        setRenderValue(newValue)
+      }
+    },
+    [renderValue, setStoreValue]
+  )
+
   useEffect(() => {
     isMounted.current = true
     const watchConfig: StorageCallbackMap = {
@@ -65,32 +85,12 @@ export const useStorage = <T = any>(rawKey: RawKey, onInit?: Setter<T>) => {
       isMounted.current = false
       storageRef.current.unwatch(watchConfig)
     }
-  }, [])
-
-  // Save the value OR current rendering value into chrome storage
-  const setStoreValue = useCallback(
-    (v?: T) => storageRef.current.set(key, v !== undefined ? v : renderValue),
-    [renderValue]
-  )
-
-  // Store the value into chrome storage, then set its render state
-  const persistValue = useCallback(
-    async (setter: Setter<T>) => {
-      const newValue = setter instanceof Function ? setter(renderValue) : setter
-
-      await setStoreValue(newValue)
-
-      if (isMounted.current) {
-        setRenderValue(newValue)
-      }
-    },
-    [renderValue, setStoreValue]
-  )
+  }, [key, persistValue])
 
   const remove = useCallback(() => {
     storageRef.current.remove(key)
     setRenderValue(undefined)
-  }, [setRenderValue])
+  }, [key])
 
   return [
     renderValue,

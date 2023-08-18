@@ -4,7 +4,7 @@
  * This module share storage between chrome storage and local storage.
  */
 import { beforeEach, describe, expect, jest, test } from "@jest/globals"
-import { act, renderHook } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 
 import type { StorageWatchEventListener } from "~index"
 
@@ -181,6 +181,38 @@ describe("react hook", () => {
     unmount()
 
     expect(removeListener).toHaveBeenCalled()
+  })
+
+  test("is reactive to key changes", async () => {
+    const { setTriggers, getTriggers } = createStorageMock()
+
+    const value = "hello world"
+
+    const { result, rerender, unmount } = renderHook(
+      ({ key }) => useStorage(key, value),
+      {
+        initialProps: { key: "key1" }
+      }
+    )
+
+    expect(getTriggers).toHaveBeenCalledWith("key1")
+
+    await act(async () => {
+      await result.current[1](value)
+      rerender({ key: "key2" })
+    })
+    expect(setTriggers).toHaveBeenCalledWith({ key1: JSON.stringify(value) })
+    expect(getTriggers).toHaveBeenCalledWith("key2")
+    
+    await act(async () => {
+      await result.current[1](value)
+      rerender({ key: "key3" })
+    })
+
+    expect(setTriggers).toHaveBeenCalledWith({ key2: JSON.stringify(value) })
+    expect(getTriggers).toHaveBeenCalledWith("key3")
+
+    unmount()
   })
 })
 
