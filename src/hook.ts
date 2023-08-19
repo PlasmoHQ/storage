@@ -35,19 +35,27 @@ export const useStorage = <T = any>(rawKey: RawKey, onInit?: Setter<T>) => {
   // Use to ensure we don't set render state after unmounted
   const isMounted = useRef(false)
 
+  // Ref that stores the render state, in order to minimize dependencies of callbacks below
+  const renderValueRef = useRef(onInit instanceof Function ? onInit() : onInit)
+  useEffect(() => {
+    renderValueRef.current = renderValue
+  }, [renderValue])
+
   // Storage state
   const storageRef = useRef(isObjectKey ? rawKey.instance : new Storage())
 
   // Save the value OR current rendering value into chrome storage
   const setStoreValue = useCallback(
-    (v?: T) => storageRef.current.set(key, v !== undefined ? v : renderValue),
-    [renderValue, key]
+    (v?: T) =>
+      storageRef.current.set(key, v !== undefined ? v : renderValueRef.current),
+    [key]
   )
 
   // Store the value into chrome storage, then set its render state
   const persistValue = useCallback(
     async (setter: Setter<T>) => {
-      const newValue = setter instanceof Function ? setter(renderValue) : setter
+      const newValue =
+        setter instanceof Function ? setter(renderValueRef.current) : setter
 
       await setStoreValue(newValue)
 
@@ -55,7 +63,7 @@ export const useStorage = <T = any>(rawKey: RawKey, onInit?: Setter<T>) => {
         setRenderValue(newValue)
       }
     },
-    [renderValue, setStoreValue]
+    [setStoreValue]
   )
 
   useEffect(() => {
