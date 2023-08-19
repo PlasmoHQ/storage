@@ -4,7 +4,7 @@
  * This module share storage between chrome storage and local storage.
  */
 import { beforeEach, describe, expect, jest, test } from "@jest/globals"
-import { act, renderHook, waitFor } from "@testing-library/react"
+import { act, renderHook } from "@testing-library/react"
 
 import type { StorageWatchEventListener } from "~index"
 
