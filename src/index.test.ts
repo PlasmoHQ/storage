@@ -4,7 +4,7 @@
  * This module share storage between chrome storage and local storage.
  */
 import { beforeEach, describe, expect, jest, test } from "@jest/globals"
-import { act, renderHook } from "@testing-library/react"
+import { act, renderHook, waitFor } from "@testing-library/react"
 
 import type { StorageWatchEventListener } from "~index"
 
@@ -186,31 +186,48 @@ describe("react hook", () => {
   test("is reactive to key changes", async () => {
     const { setTriggers, getTriggers } = createStorageMock()
 
-    const value = "hello world"
+    const key1 = "key1"
+    const key2 = "key2"
+    const initValue = "hello"
+    const key1Value = "hello world"
+    const key2Value = "hello world 2"
 
     const { result, rerender, unmount } = renderHook(
-      ({ key }) => useStorage(key, value),
+      ({ key }) => useStorage(key, initValue),
       {
-        initialProps: { key: "key1" }
+        initialProps: { key: key1 }
       }
     )
 
-    expect(getTriggers).toHaveBeenCalledWith("key1")
-
+    // with initial key, set new value
     await act(async () => {
-      await result.current[1](value)
-      rerender({ key: "key2" })
+      await result.current[1](key1Value)
     })
-    expect(setTriggers).toHaveBeenCalledWith({ key1: JSON.stringify(value) })
-    expect(getTriggers).toHaveBeenCalledWith("key2")
-    
-    await act(async () => {
-      await result.current[1](value)
-      rerender({ key: "key3" })
+    expect(setTriggers).toHaveBeenCalledWith({
+      key1: JSON.stringify(key1Value)
     })
 
-    expect(setTriggers).toHaveBeenCalledWith({ key2: JSON.stringify(value) })
-    expect(getTriggers).toHaveBeenCalledWith("key3")
+    // re-render with new key, and ensure new key is looked up from storage and that we reset to initial value
+    await act(async () => {
+      rerender({ key: key2 })
+    })
+    expect(getTriggers).toHaveBeenCalledWith(key2)
+    await waitFor(() => expect(result.current[0]).toBe(initValue))
+
+    // set new key to new value
+    await act(async () => {
+      await result.current[1](key2Value)
+    })
+    expect(setTriggers).toHaveBeenCalledWith({
+      key2: JSON.stringify(key2Value)
+    })
+    await waitFor(() => expect(result.current[0]).toBe(key2Value))
+
+    // re-render with old key, and ensure old key's up-to-date value is fetched
+    await act(async () => {
+      rerender({ key: key1 })
+    })
+    await waitFor(() => expect(result.current[0]).toBe(key1Value))
 
     unmount()
   })
