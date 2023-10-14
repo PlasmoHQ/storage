@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { BaseStorage, Storage, type StorageCallbackMap } from "./index"
 
-type Setter<T> = ((v?: T, isHydrating?: boolean) => T) | T
+type Setter<T> = ((v?: T, isHydrated?: boolean) => T) | T
 
 /**
  * isPublic: If true, the value will be synced with web API Storage
