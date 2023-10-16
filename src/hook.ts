@@ -92,7 +92,9 @@ export const useStorage = <T = any>(rawKey: RawKey, onInit?: Setter<T>) => {
     return () => {
       isMounted.current = false
       storageRef.current.unwatch(watchConfig)
-      if (onInit instanceof Function) setRenderValue(onInit)
+      if (onInit instanceof Function) {
+        setRenderValue(onInit)
+      }
     }
   }, [key, persistValue])
 
