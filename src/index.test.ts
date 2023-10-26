@@ -330,6 +330,25 @@ describe("Storage - Basic CRUD operations with namespace", () => {
     })
   })
 
+  test("set multiple operation", async () => {
+    // Test data
+    const testData = {
+      key: "value",
+      key2: "value2",
+      key3: "value3",
+    };
+    // Perform set operation
+    await storage.set(testData);
+
+    // Check if storageMock.setTriggers is called with the correct parameters
+
+    for (let key in testData) {
+      expect(storageMock.setTriggers).toHaveBeenCalledWith({
+        [`${namespace}${key}`]: JSON.stringify(testData[key]),
+      });
+    }
+  });
+
   // Test get operation with namespace
   test("get operation", async () => {
     // Test data
@@ -350,6 +369,31 @@ describe("Storage - Basic CRUD operations with namespace", () => {
     // Check if the returned value is correct
     expect(getValue).toEqual(testValue)
   })
+
+  test("get multiple operation", async () => {
+    // Test data
+    const testData = {
+      key: "value",
+      key2: "value2",
+      key3: "value3",
+    };
+
+    // Perform set operation
+    await storage.set(testData);
+
+    // Perform get operation
+    const getValue = await storage.get(Object.keys(testData));
+
+    // Check if storageMock.getTriggers is called with the correct parameter
+    for (let key in testData) {
+      expect(storageMock.getTriggers).toHaveBeenCalledWith(
+        `${namespace}${key}`
+      );
+    }
+
+    // Check if the returned value is correct
+    expect(getValue).toEqual(testData);
+  });
 
   // Test getAll operation with namespace
   test("getAll operation", async () => {
