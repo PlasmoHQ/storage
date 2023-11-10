@@ -325,7 +325,7 @@ export abstract class BaseStorage {
   /**
    * Get value from either local storage or chrome storage.
    */
-  abstract get: <T = string>(key: string|string[]) => Promise<T | Record<string, unknown>>
+  abstract get: <T = string>(key: string) => Promise<T>
 
   /**
    * Set the value. If it is a secret, it will only be set in extension storage.
@@ -369,52 +369,45 @@ export type StorageOptions = ConstructorParameters<typeof BaseStorage>[0]
  * https://docs.plasmo.com/framework/storage
  */
 export class Storage extends BaseStorage {
-  get = async <T = string>(key: string|string[]) => {
-
-    if (Array.isArray(key)) {
-      const nsKeys = key.map((k) => ({
-        key: k,
-        namespaced: this.getNamespacedKey(k),
-      }));
-      const items = {};
-
-      await Promise.all(
-        nsKeys.map(async ({ namespaced, key }) => {
-          const rawData = await this.rawGet(namespaced);
-          items[key] = await this.parseValue(rawData);
-        })
-      );
-
-      return items;
-    }
-
-    const nsKey = this.getNamespacedKey(key)
+  get = async <T = string>(key: string) => {
+    const nsKey = this.getNamespacedKey(key);
     const rawValue = await this.rawGet(nsKey)
     return this.parseValue(rawValue) as T
   }
 
-  set = async (key: string|Record<string, any>, rawValue?: any) => {
-    if (typeof key === 'object') {
-      const keyEntries = Object.entries(key);
-
-      await Promise.all(
-        keyEntries.map(async ([index, value]) => {
-          const nsKey = this.getNamespacedKey(index);
-          const jsonValue = JSON.stringify(value);
-          return this.rawSet(nsKey, jsonValue);
-        })
-      );
-
-      return null;
-    }
-
-    if (!rawValue) {
-      throw new Error("Value cannot be null if the key is a string");
-    }
-
+  set = async (key: string, rawValue?: any) => {
     const nsKey = this.getNamespacedKey(key)
     const value = JSON.stringify(rawValue)
     return this.rawSet(nsKey, value)
+  }
+
+  getItems = async (keys: string[]) => {
+    const nsKeys = keys.map((k) => ({
+      key: k,
+      namespaced: this.getNamespacedKey(k),
+    }));
+    const items = {};
+
+    await Promise.all(
+      nsKeys.map(async ({ namespaced, key }) => {
+        const rawData = await this.rawGet(namespaced);
+        items[key] = await this.parseValue(rawData);
+      })
+    );
+
+    return items;  
+  }
+
+  setItems = async (items: Record<string, unknown>) => {
+    const keyEntries = Object.entries(items);
+
+    return await Promise.all(
+      keyEntries.map(async ([index, value]) => {
+        const nsKey = this.getNamespacedKey(index);
+        const jsonValue = JSON.stringify(value);
+        return this.rawSet(nsKey, jsonValue);
+      })
+    );
   }
 
   remove = async (key: string) => {

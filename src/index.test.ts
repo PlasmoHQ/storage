@@ -337,8 +337,8 @@ describe("Storage - Basic CRUD operations with namespace", () => {
       key2: "value2",
       key3: "value3",
     };
-    // Perform set operation
-    await storage.set(testData);
+    // Perform setItems operation
+    await storage.setItems(testData);
 
     // Check if storageMock.setTriggers is called with the correct parameters
 
@@ -378,11 +378,11 @@ describe("Storage - Basic CRUD operations with namespace", () => {
       key3: "value3",
     };
 
-    // Perform set operation
-    await storage.set(testData);
+    // Perform setItems operation
+    await storage.setItems(testData);
 
-    // Perform get operation
-    const getValue = await storage.get(Object.keys(testData));
+    // Perform getItems operation
+    const getValue = await storage.getItems(Object.keys(testData));
 
     // Check if storageMock.getTriggers is called with the correct parameter
     for (let key in testData) {
