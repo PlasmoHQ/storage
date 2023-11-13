@@ -375,7 +375,7 @@ export class Storage extends BaseStorage {
     return this.parseValue(rawValue) as T
   }
 
-  set = async (key: string, rawValue?: any) => {
+  set = async (key: string, rawValue: any) => {
     const nsKey = this.getNamespacedKey(key)
     const value = JSON.stringify(rawValue)
     return this.rawSet(nsKey, value)
