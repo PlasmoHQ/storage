@@ -138,7 +138,7 @@ export abstract class BaseStorage {
       .filter(([key]) => this.isValidKey(key))
       .reduce(
         (acc, [key, value]) => {
-          acc[this.getUnnamespacedKey(key)] = value
+          acc[this.getUnnamespacedKey(key)] = value as string
           return acc
         },
         {} as Record<string, string>
@@ -182,7 +182,7 @@ export abstract class BaseStorage {
     return changed
   }
 
-  protected rawGet = async (key: string): Promise<string> => {
+  protected rawGet = async (key: string): Promise<string | null | undefined> => {
     if (this.hasExtensionApi) {
       const dataMap = await this.#primaryClient.get(key)
 
@@ -269,6 +269,10 @@ export abstract class BaseStorage {
         }
 
         const storageComms = this.#watchMap.get(nsKey)
+        if (!storageComms) {
+          throw new Error(`Storage comms does not exist for nsKey: ${nsKey}`)
+        }
+
         Promise.all([
           this.parseValue(changes[nsKey].newValue),
           this.parseValue(changes[nsKey].oldValue)
@@ -300,14 +304,15 @@ export abstract class BaseStorage {
     for (const cbKey in callbackMap) {
       const nsKey = this.getNamespacedKey(cbKey)
       const callback = callbackMap[cbKey]
-      if (this.#watchMap.has(nsKey)) {
-        const storageComms = this.#watchMap.get(nsKey)
-        storageComms.callbackSet.delete(callback)
+      const storageComms = this.#watchMap.get(nsKey)
+      if (!storageComms) {
+        continue
+      }
 
-        if (storageComms.callbackSet.size === 0) {
-          this.#watchMap.delete(nsKey)
-          this.#extStorageEngine.onChanged.removeListener(storageComms.listener)
-        }
+      storageComms.callbackSet.delete(callback)
+      if (storageComms.callbackSet.size === 0) {
+        this.#watchMap.delete(nsKey)
+        this.#extStorageEngine.onChanged.removeListener(storageComms.listener)
       }
     }
   }
@@ -325,14 +330,14 @@ export abstract class BaseStorage {
   /**
    * Get value from either local storage or chrome storage.
    */
-  abstract get: <T = string>(key: string) => Promise<T>
+  abstract get: <T = string>(key: string) => Promise<T | undefined>
 
   /**
    * Set the value. If it is a secret, it will only be set in extension storage.
    * Returns a warning if storage capacity is almost full.
    * Throws error if the new item will make storage full
    */
-  abstract set: (key: string, rawValue: any) => Promise<string>
+  abstract set: (key: string, rawValue: any) => Promise<null>
 
   abstract remove: (key: string) => Promise<void>
 
@@ -372,7 +377,7 @@ export class Storage extends BaseStorage {
   get = async <T = string>(key: string) => {
     const nsKey = this.getNamespacedKey(key)
     const rawValue = await this.rawGet(nsKey)
-    return this.parseValue(rawValue) as T
+    return this.parseValue(rawValue) as T | undefined
   }
 
   set = async (key: string, rawValue: any) => {
