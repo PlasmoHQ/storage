@@ -30,7 +30,7 @@ export const useStorage = <T = any>(rawKey: RawKey, onInit?: Setter<T>) => {
   const key = isObjectKey ? rawKey.key : rawKey
 
   // Render state
-  const [renderValue, setRenderValue] = useState<T>(onInit)
+  const [renderValue, setRenderValue] = useState<T | undefined>(onInit)
 
   // Use to ensure we don't set render state after unmounted
   const isMounted = useRef(false)
