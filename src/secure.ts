@@ -160,11 +160,12 @@ export class SecureStorage extends BaseStorage {
   }
 
   get = async <T = string>(key: string) => {
-    return await this.getMany<T>([key])[key]
+    const results = await this.getMany<T>([key])
+    return results[key]
   }
 
   getMany = async <T = string>(keys: string[]) => {
-    const nsKeys = keys.map(this.getNamespacedKey)
+    const nsKeys = keys.map(key => this.getNamespacedKey(key))
     const rawValues = await this.rawGetMany(nsKeys)
     const results: Record<string, T> = {}
     for (const [key, rawValue] of Object.entries(rawValues)) {

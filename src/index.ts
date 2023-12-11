@@ -379,7 +379,8 @@ export type StorageOptions = ConstructorParameters<typeof BaseStorage>[0]
  */
 export class Storage extends BaseStorage {
   get = async <T = string>(key: string) => {
-    return await this.getMany([key])[key]
+    const results = await this.getMany([key])
+    return results[key] as T
   }
 
   getMany = async <T = string>(keys: string[]) => {
