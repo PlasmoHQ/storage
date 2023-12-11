@@ -182,33 +182,35 @@ export abstract class BaseStorage {
     return changed
   }
 
-  protected rawGet = async (key: string): Promise<string> => {
-    if (this.hasExtensionApi) {
-      const dataMap = await this.#primaryClient.get(key)
-
-      return dataMap[key]
-    }
-
-    // If chrome storage is not available, use localStorage
-    // TODO: TRY asking for storage permission and retry?
-    if (this.isCopied(key)) {
-      return this.#secondaryClient?.getItem(key)
-    }
-
-    return null
+  protected rawGet = async (key: string): Promise<string | undefined> => {
+    return await this.rawGetMany([key])[key]
   }
 
-  protected rawSet = async (key: string, value: string) => {
-    // If not a secret, we set it in localstorage as well
-    if (this.isCopied(key)) {
-      this.#secondaryClient?.setItem(key, value)
+  protected rawGetMany = async (keys: string[]): Promise<Record<string, string | undefined>> => {
+    if (this.hasExtensionApi) {
+      return this.#primaryClient.get(keys)
+    }
+
+    return keys.filter(this.isCopied).reduce((dataMap, copiedKey) => {
+      dataMap[copiedKey] = this.#secondaryClient?.getItem(copiedKey)
+      return dataMap
+    }, {})
+  }
+
+  protected rawSet = (key: string, value: string) => {
+    return this.rawSetMany({ [key]: value })
+  }
+
+  protected rawSetMany = async (items: Record<string, string>) => {
+    if (this.#secondaryClient) {
+      Object.entries(items)
+        .filter(([key]) => this.isCopied(key))
+        .map(([key, value]) => this.#secondaryClient.setItem(key, value))
     }
 
     if (this.hasExtensionApi) {
-      await this.#primaryClient.set({ [key]: value })
+      await this.#primaryClient.set(items)
     }
-
-    return null
   }
 
   /**
@@ -223,12 +225,16 @@ export abstract class BaseStorage {
   }
 
   protected rawRemove = async (key: string) => {
-    if (this.isCopied(key)) {
-      this.#secondaryClient?.removeItem(key)
-    }
+    this.rawRemoveMany([key])
+  }
 
+  protected rawRemoveMany = async (keys: string[]) => {
+    if (this.#secondaryClient) {
+      keys.filter(this.isCopied).map(this.#secondaryClient.removeItem)
+    }
+    
     if (this.hasExtensionApi) {
-      await this.#primaryClient.remove(key)
+      await this.#primaryClient.remove(keys)
     }
   }
 
@@ -326,15 +332,18 @@ export abstract class BaseStorage {
    * Get value from either local storage or chrome storage.
    */
   abstract get: <T = string>(key: string) => Promise<T>
+  abstract getMany: <T = string>(keys: string[]) => Promise<Record<string, T>>
 
   /**
    * Set the value. If it is a secret, it will only be set in extension storage.
    * Returns a warning if storage capacity is almost full.
    * Throws error if the new item will make storage full
    */
-  abstract set: (key: string, rawValue: any) => Promise<string>
+  abstract set: (key: string, rawValue: any) => Promise<void>
+  abstract setMany: (items: Record<string, any>) => Promise<void>
 
   abstract remove: (key: string) => Promise<void>
+  abstract removeMany: (keys: string[]) => Promise<void>
 
   /**
    * Parse the value into its original form from storage raw value.
@@ -370,20 +379,38 @@ export type StorageOptions = ConstructorParameters<typeof BaseStorage>[0]
  */
 export class Storage extends BaseStorage {
   get = async <T = string>(key: string) => {
-    const nsKey = this.getNamespacedKey(key)
-    const rawValue = await this.rawGet(nsKey)
-    return this.parseValue(rawValue) as T
+    return await this.getMany([key])[key]
+  }
+
+  getMany = async <T = string>(keys: string[]) => {
+    const nsKeys = keys.map(this.getNamespacedKey)
+    const rawValues = await this.rawGetMany(nsKeys)
+    const results: Record<string, T> = {}
+    for (const [key, rawValue] of Object.entries(rawValues)) {
+      results[this.getUnnamespacedKey(key)] = await this.parseValue(rawValue)
+    }
+    return results
   }
 
   set = async (key: string, rawValue: any) => {
-    const nsKey = this.getNamespacedKey(key)
-    const value = JSON.stringify(rawValue)
-    return this.rawSet(nsKey, value)
+    this.setMany({ [key]: rawValue })
+  }
+
+  setMany = async (items: Record<string, any>) => {
+    const nsItems = Object.entries(items).reduce((nsItems, [key, value]) => {
+      nsItems[this.getNamespacedKey(key)] = JSON.stringify(value)
+      return nsItems
+    }, {});
+    return this.rawSetMany(nsItems)
   }
 
   remove = async (key: string) => {
-    const nsKey = this.getNamespacedKey(key)
-    return this.rawRemove(nsKey)
+    return this.removeMany([key])
+  }
+
+  removeMany = async (keys: string[]) => {
+    const nsKeys = keys.map(this.getNamespacedKey)
+    return this.rawRemoveMany(nsKeys)
   }
 
   setNamespace = (namespace: string) => {

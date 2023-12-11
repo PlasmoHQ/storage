@@ -160,21 +160,41 @@ export class SecureStorage extends BaseStorage {
   }
 
   get = async <T = string>(key: string) => {
-    const nsKey = this.getNamespacedKey(key)
-    const boxBase64 = await this.rawGet(nsKey)
-    return this.parseValue(boxBase64) as T
+    return await this.getMany<T>([key])[key]
   }
 
-  set = async (key: string, rawValue: any) => {
-    const nsKey = this.getNamespacedKey(key)
-    const value = JSON.stringify(rawValue)
-    const boxBase64 = await this.encrypt(value)
-    return await this.rawSet(nsKey, boxBase64)
+  getMany = async <T = string>(keys: string[]) => {
+    const nsKeys = keys.map(this.getNamespacedKey)
+    const rawValues = await this.rawGetMany(nsKeys)
+    const results: Record<string, T> = {}
+    for (const [key, rawValue] of Object.entries(rawValues)) {
+      results[this.getUnnamespacedKey(key)] = await this.parseValue(rawValue)
+    }
+    return results
   }
 
-  remove = async (key: string) => {
-    const nsKey = this.getNamespacedKey(key)
-    return await this.rawRemove(nsKey)
+  set = (key: string, rawValue: any) => {
+    return this.setMany({ [key]: rawValue })
+  }
+
+  setMany = async (items: Record<string, any>) => {
+    const encryptedItemPromises = Object.entries(items).map(([key, rawValue]) => {
+      const nsKey = this.getNamespacedKey(key)
+      const value = JSON.stringify(rawValue)
+      return this.encrypt(value).then((boxBase64) => [nsKey, boxBase64])
+    })
+    const nsEntries = await Promise.all(encryptedItemPromises)
+    const nsItems = Object.fromEntries(nsEntries)
+    return this.rawSetMany(nsItems)
+  }
+
+  remove = (key: string) => {
+    return this.removeMany([key])
+  }
+
+  removeMany = (keys: string[]) => {
+    const nsKeys = keys.map(this.getNamespacedKey)
+    return this.rawRemoveMany(nsKeys)
   }
 
   protected parseValue = async (boxBase64: string) => {
