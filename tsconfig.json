@@ -18,7 +18,8 @@
     "module": "ESNext",
     "target": "ESNext",
     "allowJs": true,
-    "verbatimModuleSyntax": true
+    "verbatimModuleSyntax": true,
+    "strictNullChecks": true
   },
   "include": ["src/**/*.ts"]
 }
