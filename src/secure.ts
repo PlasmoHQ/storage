@@ -162,7 +162,7 @@ export class SecureStorage extends BaseStorage {
   get = async <T = string>(key: string) => {
     const nsKey = this.getNamespacedKey(key)
     const boxBase64 = await this.rawGet(nsKey)
-    return this.parseValue(boxBase64) as T
+    return this.parseValue(boxBase64) as T | undefined
   }
 
   set = async (key: string, rawValue: any) => {
@@ -177,8 +177,8 @@ export class SecureStorage extends BaseStorage {
     return await this.rawRemove(nsKey)
   }
 
-  protected parseValue = async (boxBase64: string) => {
-    if (boxBase64 !== undefined) {
+  protected parseValue = async (boxBase64: string | null | undefined) => {
+    if (boxBase64 !== undefined && boxBase64 !== null) {
       const rawValue = await this.decrypt(boxBase64)
       return JSON.parse(rawValue)
     }
