@@ -211,7 +211,7 @@ describe("react hook", () => {
     await act(async () => {
       rerender({ key: key2 })
     })
-    expect(getTriggers).toHaveBeenCalledWith(key2)
+    expect(getTriggers).toHaveBeenCalledWith([key2])
     await waitFor(() => expect(result.current[0]).toBe(initValue))
 
     // set new key to new value
@@ -344,7 +344,7 @@ describe("Storage - Basic CRUD operations with namespace", () => {
 
     // Check if storageMock.getTriggers is called with the correct parameter
     expect(storageMock.getTriggers).toHaveBeenCalledWith(
-      `${namespace}${testKey}`
+      [`${namespace}${testKey}`]
     )
 
     // Check if the returned value is correct
@@ -385,7 +385,7 @@ describe("Storage - Basic CRUD operations with namespace", () => {
 
     // Check if storageMock.removeListener is called with the correct parameter
     expect(storageMock.removeTriggers).toHaveBeenCalledWith(
-      `${namespace}${testKey}`
+      [`${namespace}${testKey}`]
     )
   })
 
@@ -405,10 +405,10 @@ describe("Storage - Basic CRUD operations with namespace", () => {
     await storage.removeAll()
 
     expect(storageMock.removeTriggers).toHaveBeenCalledWith(
-      `${namespace}${testKey1}`
+      [`${namespace}${testKey1}`]
     )
     expect(storageMock.removeTriggers).toHaveBeenCalledWith(
-      `${namespace}${testKey2}`
+      [`${namespace}${testKey2}`]
     )
   })
 })
