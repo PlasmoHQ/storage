@@ -7,7 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import { BaseStorage, Storage, type StorageCallbackMap } from "./index"
 
-type Setter<T> = ((v?: T, isHydrating?: boolean) => T) | T
+type Setter<T> = ((v?: T, isHydrated?: boolean) => T) | T
 
 /**
  * isPublic: If true, the value will be synced with web API Storage
@@ -92,6 +92,9 @@ export const useStorage = <T = any>(rawKey: RawKey, onInit?: Setter<T>) => {
     return () => {
       isMounted.current = false
       storageRef.current.unwatch(watchConfig)
+      if (onInit instanceof Function) {
+        setRenderValue(onInit)
+      }
     }
   }, [key, persistValue])
 
