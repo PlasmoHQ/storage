@@ -24,7 +24,30 @@ export type RawKey =
  * @param onInit  If it is a function, the returned value will be rendered and persisted. If it is a static value, it will only be rendered, not persisted
  * @returns
  */
-export const useStorage = <T = any>(rawKey: RawKey, onInit?: Setter<T>) => {
+export function useStorage<T = any>(
+  rawKey: RawKey,
+  onInit: Setter<T>
+): [
+  T,
+  (setter: Setter<T>) => Promise<void>,
+  {
+    readonly setRenderValue: React.Dispatch<React.SetStateAction<T>>
+    readonly setStoreValue: (v: T) => Promise<null>
+    readonly remove: () => void
+  }
+]
+export function useStorage<T = any>(
+  rawKey: RawKey
+): [
+  T | undefined,
+  (setter: Setter<T>) => Promise<void>,
+  {
+    readonly setRenderValue: React.Dispatch<React.SetStateAction<T | undefined>>
+    readonly setStoreValue: (v?: T) => Promise<null>
+    readonly remove: () => void
+  }
+]
+export function useStorage<T = any>(rawKey: RawKey, onInit?: Setter<T>) {
   const isObjectKey = typeof rawKey === "object"
 
   const key = isObjectKey ? rawKey.key : rawKey
