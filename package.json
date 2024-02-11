@@ -1,6 +1,6 @@
 {
   "name": "@plasmohq/storage",
-  "version": "1.9.2",
+  "version": "1.9.3",
   "description": "Safely and securely store data and share them across your extension and websites",
   "type": "module",
   "module": "./src/index.ts",
