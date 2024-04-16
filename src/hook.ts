@@ -15,9 +15,9 @@ type Setter<T> = ((v?: T, isHydrated?: boolean) => T) | T
 export type RawKey =
   | string
   | {
-      key: string
-      instance: BaseStorage
-    }
+    key: string
+    instance: BaseStorage
+  }
 
 /**
  * https://docs.plasmo.com/framework/storage
@@ -28,25 +28,25 @@ export function useStorage<T = any>(
   rawKey: RawKey,
   onInit: Setter<T>
 ): [
-  T,
-  (setter: Setter<T>) => Promise<void>,
-  {
-    readonly setRenderValue: React.Dispatch<React.SetStateAction<T>>
-    readonly setStoreValue: (v: T) => Promise<null>
-    readonly remove: () => void
-  }
-]
+    T,
+    (setter: Setter<T>) => Promise<void>,
+    {
+      readonly setRenderValue: React.Dispatch<React.SetStateAction<T>>
+      readonly setStoreValue: (v: T) => Promise<null>
+      readonly remove: () => void
+    }
+  ]
 export function useStorage<T = any>(
   rawKey: RawKey
 ): [
-  T | undefined,
-  (setter: Setter<T>) => Promise<void>,
-  {
-    readonly setRenderValue: React.Dispatch<React.SetStateAction<T | undefined>>
-    readonly setStoreValue: (v?: T) => Promise<null>
-    readonly remove: () => void
-  }
-]
+    T | undefined,
+    (setter: Setter<T>) => Promise<void>,
+    {
+      readonly setRenderValue: React.Dispatch<React.SetStateAction<T | undefined>>
+      readonly setStoreValue: (v?: T) => Promise<null>
+      readonly remove: () => void
+    }
+  ]
 export function useStorage<T = any>(rawKey: RawKey, onInit?: Setter<T>) {
   const isObjectKey = typeof rawKey === "object"
 
