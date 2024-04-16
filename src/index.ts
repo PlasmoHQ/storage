@@ -182,7 +182,9 @@ export abstract class BaseStorage {
     return changed
   }
 
-  protected rawGet = async (key: string): Promise<string | null | undefined> => {
+  protected rawGet = async (
+    key: string
+  ): Promise<string | null | undefined> => {
     if (this.hasExtensionApi) {
       const dataMap = await this.#primaryClient.get(key)
 
@@ -233,11 +235,10 @@ export abstract class BaseStorage {
   }
 
   removeAll = async () => {
-    // Using rawGetAll to retrieve all keys with namespace
-    const allData = await this.rawGetAll()
+    const allData = await this.getAll()
     const keyList = Object.keys(allData)
 
-    await Promise.all(keyList.map(this.rawRemove))
+    await Promise.all(keyList.map(this.remove))
   }
 
   watch = (callbackMap: StorageCallbackMap) => {
@@ -255,7 +256,7 @@ export abstract class BaseStorage {
       callbackSet.add(callbackMap[cbKey])
 
       if (callbackSet.size > 1) {
-        continue;
+        continue
       }
 
       const chromeStorageListener = (
