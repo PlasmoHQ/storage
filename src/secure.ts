@@ -5,6 +5,7 @@
  *
  */
 
+import { replacer, reviver } from "~utils"
 import { BaseStorage } from "./index"
 
 const { crypto } = globalThis
@@ -167,7 +168,7 @@ export class SecureStorage extends BaseStorage {
 
   set = async (key: string, rawValue: any) => {
     const nsKey = this.getNamespacedKey(key)
-    const value = JSON.stringify(rawValue)
+    const value = JSON.stringify(rawValue, replacer)
     const boxBase64 = await this.encrypt(value)
     return await this.rawSet(nsKey, boxBase64)
   }
@@ -180,7 +181,7 @@ export class SecureStorage extends BaseStorage {
   protected parseValue = async (boxBase64: string | null | undefined) => {
     if (boxBase64 !== undefined && boxBase64 !== null) {
       const rawValue = await this.decrypt(boxBase64)
-      return JSON.parse(rawValue)
+      return JSON.parse(rawValue, reviver)
     }
     return undefined
   }

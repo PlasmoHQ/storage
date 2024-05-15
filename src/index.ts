@@ -6,7 +6,7 @@
 
 import pify from "pify"
 
-import { isChromeBelow100 } from "./utils"
+import { isChromeBelow100, replacer, reviver } from "./utils"
 
 export type StorageWatchEventListener = Parameters<
   typeof chrome.storage.onChanged.addListener
@@ -108,7 +108,7 @@ export abstract class BaseStorage {
       if (this.hasWebApi && (allCopied || copiedKeyList.length > 0)) {
         this.#secondaryClient = window.localStorage
       }
-    } catch {}
+    } catch { }
 
     try {
       if (this.hasExtensionApi) {
@@ -123,7 +123,7 @@ export abstract class BaseStorage {
           this.#primaryClient = this.#extStorageEngine[this.area]
         }
       }
-    } catch {}
+    } catch { }
   }
 
   setCopiedKeySet(keyList: string[]) {
@@ -163,8 +163,8 @@ export abstract class BaseStorage {
     const dataMap = this.allCopied
       ? await this.rawGetAll()
       : await this.#primaryClient.get(
-          (syncAll ? [...this.copiedKeySet] : [key]).map(this.getNamespacedKey)
-        )
+        (syncAll ? [...this.copiedKeySet] : [key]).map(this.getNamespacedKey)
+      )
 
     if (!dataMap) {
       return false
@@ -382,7 +382,7 @@ export class Storage extends BaseStorage {
 
   set = async (key: string, rawValue: any) => {
     const nsKey = this.getNamespacedKey(key)
-    const value = JSON.stringify(rawValue)
+    const value = JSON.stringify(rawValue, replacer)
     return this.rawSet(nsKey, value)
   }
 
@@ -398,7 +398,7 @@ export class Storage extends BaseStorage {
   protected parseValue = async (rawValue: any) => {
     try {
       if (rawValue !== undefined) {
-        return JSON.parse(rawValue)
+        return JSON.parse(rawValue, reviver)
       }
     } catch (e) {
       // ignore error. TODO: debug log them maybe
