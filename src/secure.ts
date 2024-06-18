@@ -162,12 +162,12 @@ export class SecureStorage extends BaseStorage {
   get = async <T = string>(key: string) => {
     const nsKey = this.getNamespacedKey(key)
     const boxBase64 = await this.rawGet(nsKey)
-    return this.parseValue(boxBase64) as T | undefined
+    return this.parseValue<T>(boxBase64)
   }
 
   set = async (key: string, rawValue: any) => {
     const nsKey = this.getNamespacedKey(key)
-    const value = JSON.stringify(rawValue)
+    const value = this.serde.serializer(rawValue)
     const boxBase64 = await this.encrypt(value)
     return await this.rawSet(nsKey, boxBase64)
   }
@@ -177,10 +177,10 @@ export class SecureStorage extends BaseStorage {
     return await this.rawRemove(nsKey)
   }
 
-  protected parseValue = async (boxBase64: string | null | undefined) => {
+  protected parseValue = async <T>(boxBase64: string | null | undefined) => {
     if (boxBase64 !== undefined && boxBase64 !== null) {
       const rawValue = await this.decrypt(boxBase64)
-      return JSON.parse(rawValue)
+      return this.serde.deserializer<T>(rawValue)
     }
     return undefined
   }

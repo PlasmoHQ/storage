@@ -15,9 +15,9 @@ type Setter<T> = ((v?: T, isHydrated?: boolean) => T) | T
 export type RawKey =
   | string
   | {
-      key: string
-      instance: BaseStorage
-    }
+    key: string
+    instance: BaseStorage
+  }
 
 /**
  * https://docs.plasmo.com/framework/storage

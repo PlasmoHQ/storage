@@ -24,6 +24,11 @@ export type StorageArea = chrome.storage.StorageArea
 
 export type InternalStorage = typeof chrome.storage
 
+export type SerdeOptions = {
+  serializer: <T>(value: T) => string,
+  deserializer: <T>(rawValue: string) => T
+}
+
 export abstract class BaseStorage {
   #extStorageEngine: InternalStorage
 
@@ -95,20 +100,27 @@ export abstract class BaseStorage {
   getNamespacedKey = (key: string) => `${this.keyNamespace}${key}`
   getUnnamespacedKey = (nsKey: string) => nsKey.slice(this.keyNamespace.length)
 
+  serde: SerdeOptions = {
+    serializer: JSON.stringify,
+    deserializer: JSON.parse
+  }
+
   constructor({
     area = "sync" as StorageAreaName,
     allCopied = false,
-    copiedKeyList = [] as string[]
+    copiedKeyList = [] as string[],
+    serde = {} as SerdeOptions
   } = {}) {
     this.setCopiedKeySet(copiedKeyList)
     this.#area = area
     this.#allCopied = allCopied
+    this.serde = { ...this.serde, ...serde }
 
     try {
       if (this.hasWebApi && (allCopied || copiedKeyList.length > 0)) {
         this.#secondaryClient = window.localStorage
       }
-    } catch {}
+    } catch { }
 
     try {
       if (this.hasExtensionApi) {
@@ -123,7 +135,7 @@ export abstract class BaseStorage {
           this.#primaryClient = this.#extStorageEngine[this.area]
         }
       }
-    } catch {}
+    } catch { }
   }
 
   setCopiedKeySet(keyList: string[]) {
@@ -163,8 +175,8 @@ export abstract class BaseStorage {
     const dataMap = this.allCopied
       ? await this.rawGetAll()
       : await this.#primaryClient.get(
-          (syncAll ? [...this.copiedKeySet] : [key]).map(this.getNamespacedKey)
-        )
+        (syncAll ? [...this.copiedKeySet] : [key]).map(this.getNamespacedKey)
+      )
 
     if (!dataMap) {
       return false
@@ -345,7 +357,7 @@ export abstract class BaseStorage {
   /**
    * Parse the value into its original form from storage raw value.
    */
-  protected abstract parseValue: (rawValue: any) => Promise<any>
+  protected abstract parseValue: <T>(rawValue: any) => Promise<T | undefined>
 
   /**
    * Alias for get
@@ -378,12 +390,12 @@ export class Storage extends BaseStorage {
   get = async <T = string>(key: string) => {
     const nsKey = this.getNamespacedKey(key)
     const rawValue = await this.rawGet(nsKey)
-    return this.parseValue(rawValue) as T | undefined
+    return this.parseValue<T>(rawValue)
   }
 
   set = async (key: string, rawValue: any) => {
     const nsKey = this.getNamespacedKey(key)
-    const value = JSON.stringify(rawValue)
+    const value = this.serde.serializer(rawValue)
     return this.rawSet(nsKey, value)
   }
 
@@ -396,10 +408,10 @@ export class Storage extends BaseStorage {
     this.keyNamespace = namespace
   }
 
-  protected parseValue = async (rawValue: any) => {
+  protected parseValue = async <T>(rawValue: any) => {
     try {
       if (rawValue !== undefined) {
-        return JSON.parse(rawValue)
+        return this.serde.deserializer<T>(rawValue)
       }
     } catch (e) {
       // ignore error. TODO: debug log them maybe
