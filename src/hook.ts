@@ -58,7 +58,8 @@ export function useStorage<T = any>(rawKey: RawKey, onInit?: Setter<T>) {
 
   // Render state
   const [renderValue, setRenderValue] = useState(onInit)
-
+  const [isLoading, setIsLoading] = useState(true)
+  
   // Use to ensure we don't set render state after unmounted
   const isMounted = useRef(false)
 
@@ -99,6 +100,7 @@ export function useStorage<T = any>(rawKey: RawKey, onInit?: Setter<T>) {
       [key]: (change) => {
         if (isMounted.current) {
           setRenderValue(change.newValue)
+          setIsLoading(false)
         }
       }
     }
