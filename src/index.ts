@@ -247,10 +247,11 @@ export abstract class BaseStorage {
   }
 
   removeAll = async () => {
-    const allData = await this.getAll()
+    // Using rawGetAll to retrieve all keys with namespace
+    const allData = await this.rawGetAll()
     const keyList = Object.keys(allData)
 
-    await Promise.all(keyList.map(this.remove))
+    await Promise.all(keyList.map(this.rawRemove))
   }
 
   watch = (callbackMap: StorageCallbackMap) => {
