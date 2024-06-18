@@ -54,6 +54,8 @@ export function useStorage<T = any>(rawKey: RawKey, onInit?: Setter<T>) {
 
   const key = isObjectKey ? rawKey.key : rawKey
 
+  const [isLoading, setIsLoading] = useState(true);
+
   // Render state
   const [renderValue, setRenderValue] = useState(onInit)
   const [isLoading, setIsLoading] = useState(true)
@@ -137,7 +139,8 @@ export function useStorage<T = any>(rawKey: RawKey, onInit?: Setter<T>) {
     {
       setRenderValue,
       setStoreValue,
-      remove
+      remove,
+      isLoading
     }
   ] as const
 }
