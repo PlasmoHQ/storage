@@ -231,6 +231,36 @@ describe("react hook", () => {
 
     unmount()
   })
+
+  test('isLoading is true until value is fetched', async () => {
+    const { getTriggers } = createStorageMock()
+
+    const key = 'key'
+    const value = 'hello'
+
+    const { result, unmount } = renderHook(() => useStorage(key))
+
+    expect(result.current[2].isLoading).toBe(true)
+
+    unmount()
+  })
+
+  test('isLoading is false after value is fetched', async () => {
+    const { getTriggers } = createStorageMock()
+
+    const key = 'key'
+    const value = 'hello'
+
+    const { result, unmount } = renderHook(() => useStorage(key))
+
+    await act(async () => {
+      await result.current[1](value)
+    })
+
+    expect(result.current[2].isLoading).toBe(false)
+
+    unmount()
+  })
 })
 
 describe("watch/unwatch", () => {

@@ -28,33 +28,38 @@ export function useStorage<T = any>(
   rawKey: RawKey,
   onInit: Setter<T>
 ): [
-    T,
-    (setter: Setter<T>) => Promise<void>,
-    {
-      readonly setRenderValue: React.Dispatch<React.SetStateAction<T>>
-      readonly setStoreValue: (v: T) => Promise<null>
-      readonly remove: () => void
-    }
-  ]
+  T,
+  (setter: Setter<T>) => Promise<void>,
+  {
+    readonly setRenderValue: React.Dispatch<React.SetStateAction<T>>
+    readonly setStoreValue: (v: T) => Promise<null>
+    readonly remove: () => void
+    readonly isLoading: boolean
+  }
+]
 export function useStorage<T = any>(
   rawKey: RawKey
 ): [
-    T | undefined,
-    (setter: Setter<T>) => Promise<void>,
-    {
-      readonly setRenderValue: React.Dispatch<React.SetStateAction<T | undefined>>
-      readonly setStoreValue: (v?: T) => Promise<null>
-      readonly remove: () => void
-    }
-  ]
+  T | undefined,
+  (setter: Setter<T>) => Promise<void>,
+  {
+    readonly setRenderValue: React.Dispatch<React.SetStateAction<T | undefined>>
+    readonly setStoreValue: (v?: T) => Promise<null>
+    readonly remove: () => void
+    readonly isLoading: boolean
+  }
+]
 export function useStorage<T = any>(rawKey: RawKey, onInit?: Setter<T>) {
   const isObjectKey = typeof rawKey === "object"
 
   const key = isObjectKey ? rawKey.key : rawKey
 
+  const [isLoading, setIsLoading] = useState(true);
+
   // Render state
   const [renderValue, setRenderValue] = useState(onInit)
-
+  const [isLoading, setIsLoading] = useState(true)
+  
   // Use to ensure we don't set render state after unmounted
   const isMounted = useRef(false)
 
@@ -95,6 +100,7 @@ export function useStorage<T = any>(rawKey: RawKey, onInit?: Setter<T>) {
       [key]: (change) => {
         if (isMounted.current) {
           setRenderValue(change.newValue)
+          setIsLoading(false)
         }
       }
     }
@@ -110,6 +116,7 @@ export function useStorage<T = any>(rawKey: RawKey, onInit?: Setter<T>) {
       } else {
         setRenderValue(v !== undefined ? v : onInit)
       }
+      setIsLoading(false)
     })
 
     return () => {
@@ -132,7 +139,8 @@ export function useStorage<T = any>(rawKey: RawKey, onInit?: Setter<T>) {
     {
       setRenderValue,
       setStoreValue,
-      remove
+      remove,
+      isLoading
     }
   ] as const
 }
