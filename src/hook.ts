@@ -15,9 +15,9 @@ type Setter<T> = ((v?: T, isHydrated?: boolean) => T) | T
 export type RawKey =
   | string
   | {
-    key: string
-    instance: BaseStorage
-  }
+      key: string
+      instance: BaseStorage
+    }
 
 /**
  * https://docs.plasmo.com/framework/storage
@@ -54,12 +54,10 @@ export function useStorage<T = any>(rawKey: RawKey, onInit?: Setter<T>) {
 
   const key = isObjectKey ? rawKey.key : rawKey
 
-  const [isLoading, setIsLoading] = useState(true);
-
   // Render state
   const [renderValue, setRenderValue] = useState(onInit)
   const [isLoading, setIsLoading] = useState(true)
-  
+
   // Use to ensure we don't set render state after unmounted
   const isMounted = useRef(false)
 

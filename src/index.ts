@@ -25,7 +25,7 @@ export type StorageArea = chrome.storage.StorageArea
 export type InternalStorage = typeof chrome.storage
 
 export type SerdeOptions = {
-  serializer: <T>(value: T) => string,
+  serializer: <T>(value: T) => string
   deserializer: <T>(rawValue: string) => T
 }
 
@@ -120,7 +120,7 @@ export abstract class BaseStorage {
       if (this.hasWebApi && (allCopied || copiedKeyList.length > 0)) {
         this.#secondaryClient = window.localStorage
       }
-    } catch { }
+    } catch {}
 
     try {
       if (this.hasExtensionApi) {
@@ -135,7 +135,7 @@ export abstract class BaseStorage {
           this.#primaryClient = this.#extStorageEngine[this.area]
         }
       }
-    } catch { }
+    } catch {}
   }
 
   setCopiedKeySet(keyList: string[]) {
@@ -175,8 +175,8 @@ export abstract class BaseStorage {
     const dataMap = this.allCopied
       ? await this.rawGetAll()
       : await this.#primaryClient.get(
-        (syncAll ? [...this.copiedKeySet] : [key]).map(this.getNamespacedKey)
-      )
+          (syncAll ? [...this.copiedKeySet] : [key]).map(this.getNamespacedKey)
+        )
 
     if (!dataMap) {
       return false

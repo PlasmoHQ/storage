@@ -11,7 +11,7 @@ export const isChromeBelow100 = () => {
       return (
         parseInt(browserMatch[2]) < 100 ||
         globalThis.chrome.runtime?.getManifest()?.manifest_version === 2
-      );
+      )
     }
   } catch {
     return false
