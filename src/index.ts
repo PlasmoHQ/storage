@@ -215,16 +215,7 @@ export abstract class BaseStorage {
   }
 
   protected rawSet = async (key: string, value: string): Promise<null> => {
-    // If not a secret, we set it in localstorage as well
-    if (this.isCopied(key)) {
-      this.#secondaryClient?.setItem(key, value)
-    }
-
-    if (this.hasExtensionApi) {
-      await this.#primaryClient.set({ [key]: value })
-    }
-
-    return null
+    return await this.rawSetMany({ [key]: value })
   }
 
   protected rawSetMany = async (items: Record<string, string>): Promise<null> => {
@@ -389,7 +380,7 @@ export abstract class BaseStorage {
   }
 
   async getItems<T = string>(keys: string[]) {
-    return this.getMany<T>(keys)
+    return await this.getMany<T>(keys)
   }
 
   /**
@@ -400,7 +391,7 @@ export abstract class BaseStorage {
   }
 
   async setItems(items: Record<string, any>) {
-    await this.setMany(items)
+    await await this.setMany(items)
   }
 
   /**
@@ -411,7 +402,7 @@ export abstract class BaseStorage {
   }
 
   async removeItems(keys: string[]) {
-    return this.removeMany(keys)
+    return await this.removeMany(keys)
   }
 }
 
