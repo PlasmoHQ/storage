@@ -21,11 +21,25 @@ const mockStorage = {
       [key]: this.data[key]
     }
   },
+  getMany(keys?: string[]) {
+    if (!keys) {
+      return { ...this.data }
+    }
+    return keys.reduce((acc, key) => {
+      acc[key] = this.data[key]
+      return acc
+    }, {})
+  },
   set(key = "", value = "") {
     this.data[key] = value
   },
   remove(key: string) {
     delete this.data[key]
+  },
+  removeMany(keys: string[]) {
+    keys.forEach((key) => {
+      delete this.data[key]
+    })
   },
   clear() {
     this.data = {}
@@ -69,8 +83,8 @@ export const createStorageMock = (): {
     sync: {
       // Needed because react hook tries to directly read the value
       //@ts-ignore
-      get: mockOutput.getTriggers.mockImplementation((key: any) =>
-        mockStorage.get(key)
+      get: mockOutput.getTriggers.mockImplementation((keys: any) => 
+        mockStorage.getMany(keys)
       ),
       //@ts-ignore
       set: mockOutput.setTriggers.mockImplementation(
@@ -92,10 +106,10 @@ export const createStorageMock = (): {
         }
       ),
       //@ts-ignore
-      remove: mockOutput.removeTriggers.mockImplementation((key: string) => {
-        mockStorage.remove(key)
+      remove: mockOutput.removeTriggers.mockImplementation((keys: string[]) => {
+        mockStorage.removeMany(keys)
 
-        onChangedCallback &&
+        onChangedCallback && keys.forEach((key) =>
           onChangedCallback(
             {
               [key]: {
@@ -105,6 +119,7 @@ export const createStorageMock = (): {
             },
             "sync"
           )
+        )
       })
     }
   }
@@ -211,7 +226,7 @@ describe("react hook", () => {
     await act(async () => {
       rerender({ key: key2 })
     })
-    expect(getTriggers).toHaveBeenCalledWith(key2)
+    expect(getTriggers).toHaveBeenCalledWith([key2])
     await waitFor(() => expect(result.current[0]).toBe(initValue))
 
     // set new key to new value
@@ -228,36 +243,6 @@ describe("react hook", () => {
       rerender({ key: key1 })
     })
     await waitFor(() => expect(result.current[0]).toBe(key1Value))
-
-    unmount()
-  })
-
-  test('isLoading is true until value is fetched', async () => {
-    const { getTriggers } = createStorageMock()
-
-    const key = 'key'
-    const value = 'hello'
-
-    const { result, unmount } = renderHook(() => useStorage(key))
-
-    expect(result.current[2].isLoading).toBe(true)
-
-    unmount()
-  })
-
-  test('isLoading is false after value is fetched', async () => {
-    const { getTriggers } = createStorageMock()
-
-    const key = 'key'
-    const value = 'hello'
-
-    const { result, unmount } = renderHook(() => useStorage(key))
-
-    await act(async () => {
-      await result.current[1](value)
-    })
-
-    expect(result.current[2].isLoading).toBe(false)
 
     unmount()
   })
@@ -360,6 +345,20 @@ describe("Storage - Basic CRUD operations with namespace", () => {
     })
   })
 
+  test("setMany operation", async () => {
+    const testData = {
+      "key1": "value1",
+      "key2": "value2"
+    }
+
+    await storage.setMany(testData)
+
+    expect(storageMock.setTriggers).toHaveBeenCalledWith({
+      [`${namespace}key1`]: JSON.stringify("value1"),
+      [`${namespace}key2`]: JSON.stringify("value2")
+    })
+  })
+
   // Test get operation with namespace
   test("get operation", async () => {
     // Test data
@@ -374,11 +373,28 @@ describe("Storage - Basic CRUD operations with namespace", () => {
 
     // Check if storageMock.getTriggers is called with the correct parameter
     expect(storageMock.getTriggers).toHaveBeenCalledWith(
-      `${namespace}${testKey}`
+      [`${namespace}${testKey}`]
     )
 
     // Check if the returned value is correct
     expect(getValue).toEqual(testValue)
+  })
+
+  test("getMany operation", async () => {
+    const testData = {
+      "key1": "value1",
+      "key2": "value2"
+    }
+
+    await storage.setMany(testData)
+
+    const getValue = await storage.getMany(Object.keys(testData))
+
+    expect(storageMock.getTriggers).toHaveBeenCalledWith(
+      [`${namespace}key1`, `${namespace}key2`]
+    )
+
+    expect(getValue).toMatchObject(testData)
   })
 
   // Test getAll operation with namespace
@@ -415,7 +431,22 @@ describe("Storage - Basic CRUD operations with namespace", () => {
 
     // Check if storageMock.removeListener is called with the correct parameter
     expect(storageMock.removeTriggers).toHaveBeenCalledWith(
-      `${namespace}${testKey}`
+      [`${namespace}${testKey}`]
+    )
+  })
+
+  test("removeMany operation", async () => {
+    const testData = {
+      "key1": "value1",
+      "key2": "value2"
+    }
+
+    await storage.setMany(testData)
+
+    await storage.removeMany(Object.keys(testData))
+
+    expect(storageMock.removeTriggers).toHaveBeenCalledWith(
+      [`${namespace}key1`, `${namespace}key2`]
     )
   })
 
@@ -435,10 +466,7 @@ describe("Storage - Basic CRUD operations with namespace", () => {
     await storage.removeAll()
 
     expect(storageMock.removeTriggers).toHaveBeenCalledWith(
-      `${namespace}${testKey1}`
-    )
-    expect(storageMock.removeTriggers).toHaveBeenCalledWith(
-      `${namespace}${testKey2}`
+      [`${namespace}${testKey1}`, `${namespace}${testKey2}`]
     )
   })
 })

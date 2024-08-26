@@ -61,6 +61,30 @@ describe("SecureStorage - Basic CRUD", () => {
     expect(result).toEqual("mockData")
   })
 
+  test("should properly setMany and getMany data", async () => {
+    const storageMock = createStorageMock()
+
+    const secureStorage = new SecureStorage({ area: "sync" })
+    await secureStorage.setPassword("testPassword")
+
+    await secureStorage.setMany({
+      testKey1: "mockData1",
+      testKey2: "mockData2"
+    })
+
+    expect(storageMock.setTriggers).toHaveBeenCalledTimes(1)
+
+    const result = await secureStorage.getMany(["testKey1", "testKey2"])
+
+    expect(storageMock.getTriggers).toHaveBeenCalledTimes(1)
+
+    // Assert that the decrypted data is returned
+    expect(result).toEqual({
+      testKey1: "mockData1",
+      testKey2: "mockData2"
+    })
+  });
+
   test("should properly remove data", async () => {
     const storageMock = createStorageMock()
 
@@ -70,6 +94,31 @@ describe("SecureStorage - Basic CRUD", () => {
 
     // Test the 'remove' method
     await secureStorage.remove("testKey")
+
+    // Assert that the underlying storage layer is called with the correct arguments
+    expect(storageMock.removeTriggers).toHaveBeenCalledTimes(1)
+
+    // Empty implies that correct key is used behind the scenes
+    // as the storage mock checks for the key before removing it
+    expect(storageMock.mockStorage.data).toEqual({})
+  })
+
+  test("should properly removeMany data", async () => {
+    const storageMock = createStorageMock()
+
+    // Initialize SecureStorage instance and set the password
+    const secureStorage = new SecureStorage({ area: "sync" })
+    await secureStorage.setPassword("testPassword")
+
+    await secureStorage.setMany({
+      testKey1: "mockData1",
+      testKey2: "mockData2"
+    })
+
+    expect(storageMock.setTriggers).toHaveBeenCalledTimes(1)
+
+    // Test the 'remove' method
+    await secureStorage.removeMany(["testKey1", "testKey2"])
 
     // Assert that the underlying storage layer is called with the correct arguments
     expect(storageMock.removeTriggers).toHaveBeenCalledTimes(1)

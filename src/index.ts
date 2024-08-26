@@ -197,22 +197,24 @@ export abstract class BaseStorage {
   protected rawGet = async (
     key: string
   ): Promise<string | null | undefined> => {
-    if (this.hasExtensionApi) {
-      const dataMap = await this.#primaryClient.get(key)
-
-      return dataMap[key]
-    }
-
-    // If chrome storage is not available, use localStorage
-    // TODO: TRY asking for storage permission and retry?
-    if (this.isCopied(key)) {
-      return this.#secondaryClient?.getItem(key)
-    }
-
-    return null
+    const results = await this.rawGetMany([key])
+    return results[key]
   }
 
-  protected rawSet = async (key: string, value: string) => {
+  protected rawGetMany = async (
+    keys: string[]
+  ): Promise<Record<string, string | null | undefined>> => {
+    if (this.hasExtensionApi) {
+      return await this.#primaryClient.get(keys)
+    }
+
+    return keys.filter(this.isCopied).reduce((dataMap, copiedKey) => {
+      dataMap[copiedKey] = this.#secondaryClient?.getItem(copiedKey)
+      return dataMap
+    }, {})
+  }
+
+  protected rawSet = async (key: string, value: string): Promise<null> => {
     // If not a secret, we set it in localstorage as well
     if (this.isCopied(key)) {
       this.#secondaryClient?.setItem(key, value)
@@ -220,6 +222,20 @@ export abstract class BaseStorage {
 
     if (this.hasExtensionApi) {
       await this.#primaryClient.set({ [key]: value })
+    }
+
+    return null
+  }
+
+  protected rawSetMany = async (items: Record<string, string>): Promise<null> => {
+    if (this.#secondaryClient) {
+      Object.entries(items)
+        .filter(([key]) => this.isCopied(key))
+        .forEach(([key, value]) => this.#secondaryClient.setItem(key, value))
+    }
+
+    if (this.hasExtensionApi) {
+      await this.#primaryClient.set(items)
     }
 
     return null
@@ -237,20 +253,23 @@ export abstract class BaseStorage {
   }
 
   protected rawRemove = async (key: string) => {
-    if (this.isCopied(key)) {
-      this.#secondaryClient?.removeItem(key)
+    await this.rawRemoveMany([key])
+  }
+
+  protected rawRemoveMany = async (keys: string[]) => {
+    if (this.#secondaryClient) {
+      keys.filter(this.isCopied).forEach((key) => this.#secondaryClient.removeItem(key))
     }
 
     if (this.hasExtensionApi) {
-      await this.#primaryClient.remove(key)
+      await this.#primaryClient.remove(keys)
     }
   }
 
   removeAll = async () => {
     const allData = await this.getAll()
     const keyList = Object.keys(allData)
-
-    await Promise.all(keyList.map(this.remove))
+    await this.removeMany(keyList)
   }
 
   watch = (callbackMap: StorageCallbackMap) => {
@@ -344,6 +363,7 @@ export abstract class BaseStorage {
    * Get value from either local storage or chrome storage.
    */
   abstract get: <T = string>(key: string) => Promise<T | undefined>
+  abstract getMany: <T = any>(keys: string[]) => Promise<Record<string, T | undefined>>
 
   /**
    * Set the value. If it is a secret, it will only be set in extension storage.
@@ -351,8 +371,10 @@ export abstract class BaseStorage {
    * Throws error if the new item will make storage full
    */
   abstract set: (key: string, rawValue: any) => Promise<null>
+  abstract setMany: (items: Record<string, any>) => Promise<null>
 
   abstract remove: (key: string) => Promise<void>
+  abstract removeMany: (keys: string[]) => Promise<void>
 
   /**
    * Parse the value into its original form from storage raw value.
@@ -366,6 +388,10 @@ export abstract class BaseStorage {
     return this.get<T>(key)
   }
 
+  async getItems<T = string>(keys: string[]) {
+    return this.getMany<T>(keys)
+  }
+
   /**
    * Alias for set, but returns void instead
    */
@@ -373,11 +399,19 @@ export abstract class BaseStorage {
     await this.set(key, rawValue)
   }
 
+  async setItems(items: Record<string, any>) {
+    await this.setMany(items)
+  }
+
   /**
    * Alias for remove
    */
   async removeItem(key: string) {
     return this.remove(key)
+  }
+
+  async removeItems(keys: string[]) {
+    return this.removeMany(keys)
   }
 }
 
@@ -393,10 +427,30 @@ export class Storage extends BaseStorage {
     return this.parseValue<T>(rawValue)
   }
 
+  getMany = async <T = any>(keys: string[]) => {
+    const nsKeys = keys.map(this.getNamespacedKey)
+    const rawValues = await this.rawGetMany(nsKeys)
+    const parsedValues = await Promise.all(
+      Object.values(rawValues).map(this.parseValue<T>)
+    )
+    return Object.keys(rawValues).reduce((results, key, i) => {
+      results[this.getUnnamespacedKey(key)] = parsedValues[i]
+      return results
+    }, {} as Record<string, T | undefined>)
+  }
+
   set = async (key: string, rawValue: any) => {
     const nsKey = this.getNamespacedKey(key)
     const value = this.serde.serializer(rawValue)
     return this.rawSet(nsKey, value)
+  }
+
+  setMany = async (items: Record<string, any>) => {
+    const nsItems = Object.entries(items).reduce((nsItems, [key, value]) => {
+      nsItems[this.getNamespacedKey(key)] = this.serde.serializer(value)
+      return nsItems
+    }, {});
+    return await this.rawSetMany(nsItems)
   }
 
   remove = async (key: string) => {
@@ -404,11 +458,16 @@ export class Storage extends BaseStorage {
     return this.rawRemove(nsKey)
   }
 
+  removeMany = async (keys: string[]) => {
+    const nsKeys = keys.map(this.getNamespacedKey)
+    return await this.rawRemoveMany(nsKeys)
+  }
+
   setNamespace = (namespace: string) => {
     this.keyNamespace = namespace
   }
 
-  protected parseValue = async <T>(rawValue: any) => {
+  protected parseValue = async <T>(rawValue: any): Promise<T | undefined> => {
     try {
       if (rawValue !== undefined) {
         return this.serde.deserializer<T>(rawValue)
