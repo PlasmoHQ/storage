@@ -165,6 +165,18 @@ export class SecureStorage extends BaseStorage {
     return this.parseValue<T>(boxBase64)
   }
 
+  getMany = async <T = any>(keys: string[]) => {
+    const nsKeys = keys.map(this.getNamespacedKey)
+    const rawValues = await this.rawGetMany(nsKeys)
+    const parsedValues = await Promise.all(
+      Object.values(rawValues).map(this.parseValue<T>)
+    )
+    return Object.keys(rawValues).reduce((results, key, i) => {
+      results[this.getUnnamespacedKey(key)] = parsedValues[i]
+      return results
+    }, {} as Record<string, T | undefined>)
+  }
+
   set = async (key: string, rawValue: any) => {
     const nsKey = this.getNamespacedKey(key)
     const value = this.serde.serializer(rawValue)
@@ -172,9 +184,29 @@ export class SecureStorage extends BaseStorage {
     return await this.rawSet(nsKey, boxBase64)
   }
 
+  setMany = async (items: Record<string, any>) => {
+    const encryptedValues = await Promise.all(
+      Object.values(items).map((rawValue) => this.encrypt(
+        this.serde.serializer(rawValue)
+      ))
+    )
+
+    const nsItems = Object.keys(items).reduce((nsItems, key, i) => {
+      nsItems[this.getNamespacedKey(key)] = encryptedValues[i]
+      return nsItems
+    }, {})
+
+    return await this.rawSetMany(nsItems)
+  }
+
   remove = async (key: string) => {
     const nsKey = this.getNamespacedKey(key)
     return await this.rawRemove(nsKey)
+  }
+
+  removeMany = async (keys: string[]) => {
+    const nsKeys = keys.map(this.getNamespacedKey)
+    return await this.rawRemoveMany(nsKeys)
   }
 
   protected parseValue = async <T>(boxBase64: string | null | undefined) => {
