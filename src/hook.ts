@@ -109,13 +109,13 @@ export function useStorage<T = any>(rawKey: RawKey, onInit?: Setter<T>) {
       if (onInit instanceof Function) {
         const initValue = onInit?.(v, true)
         if (initValue !== undefined) {
-          persistValue(initValue)
+          return persistValue(initValue)
         }
       } else {
         setRenderValue(v !== undefined ? v : onInit)
       }
-      setIsLoading(false)
     })
+    .finally(() => setIsLoading(false))
 
     return () => {
       isMounted.current = false
