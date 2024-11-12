@@ -105,17 +105,22 @@ export function useStorage<T = any>(rawKey: RawKey, onInit?: Setter<T>) {
 
     storageRef.current.watch(watchConfig)
 
-    storageRef.current.get<T>(key)?.then((v) => {
+    const initializeStorage = async () => {
+      const storedValue = await storageRef.current.get<T>(key)
+
       if (onInit instanceof Function) {
-        const initValue = onInit?.(v, true)
+        const initValue = onInit?.(storedValue, true)
         if (initValue !== undefined) {
-          return persistValue(initValue)
+          await persistValue(initValue)
         }
       } else {
-        setRenderValue(v !== undefined ? v : onInit)
+        setRenderValue(storedValue !== undefined ? storedValue : onInit)
       }
-    })
-    .finally(() => setIsLoading(false))
+
+      setIsLoading(false)
+    }
+
+    initializeStorage()
 
     return () => {
       isMounted.current = false
