@@ -1,6 +1,6 @@
 {
   "name": "@plasmohq/storage",
-  "version": "1.13.0",
+  "version": "1.15.0",
   "description": "Safely and securely store data and share them across your extension and websites",
   "type": "module",
   "module": "./src/index.ts",
@@ -124,7 +124,7 @@
     "chrome-storage"
   ],
   "peerDependencies": {
-    "react": "^16.8.6 || ^17 || ^18"
+    "react": "^16.8.6 || ^17 || ^18 || ^19.0.0"
   },
   "peerDependenciesMeta": {
     "react": {
@@ -138,16 +138,17 @@
     "@jest/globals": "29.7.0",
     "@jest/types": "29.6.3",
     "@plasmohq/rps": "workspace:*",
-    "@testing-library/react": "14.1.2",
+    "@testing-library/react": "16.2.0",
     "@types/chrome": "0.0.258",
     "@types/node": "20.11.5",
-    "@types/react": "18.2.48",
+    "@types/react": "19.0.8",
+    "canvas": "3.1.0",
     "cross-env": "7.0.3",
     "jest": "29.7.0",
     "jest-environment-jsdom": "29.7.0",
     "prettier": "3.2.4",
-    "react": "18.2.0",
-    "react-dom": "18.2.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
     "rimraf": "5.0.5",
     "ts-jest": "29.1.1",
     "tsup": "8.0.1",

@@ -39,18 +39,22 @@ cryptoMock.subtle.deriveKey.mockImplementation(
   }
 )
 
+// @ts-ignore
 cryptoMock.subtle.decrypt.mockImplementation((_, __, data: ArrayBufferLike) => {
   return Promise.resolve(new Uint8Array(data))
 })
 
+// @ts-ignore
 cryptoMock.subtle.encrypt.mockImplementation((_, __, data: ArrayBufferLike) => {
   return Promise.resolve(new Uint8Array(data))
 })
 
+// @ts-ignore
 cryptoMock.subtle.digest.mockImplementation((_, __) => {
   return Promise.resolve(new Uint8Array([0x01, 0x02, 0x03, 0x04]))
 })
 
+// @ts-ignore
 cryptoMock.getRandomValues.mockImplementation((array: Array<any>) => {
   for (let i = 0; i < array.length; i++) {
     array[i] = Math.floor(Math.random() * 256)

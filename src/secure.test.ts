@@ -36,7 +36,7 @@ const createEncoderMock = () => {
  * and does not test the actual encryption/decryption.
  */
 describe("SecureStorage - Basic CRUD", () => {
-  let storageMock: ReturnType<typeof createStorageMock>
+  let storageMock: ReturnType<typeof createStorageMock> | undefined
   beforeEach(() => {
     storageMock?.mockStorage.clear()
     jest.clearAllMocks()
